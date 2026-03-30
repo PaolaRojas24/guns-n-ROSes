@@ -72,7 +72,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /wheelr_marker
+        Value: /wheel_r_marker
       Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: true
@@ -85,7 +85,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /wheell_marker
+        Value: /wheel_l_marker
       Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: true

@@ -32,14 +32,14 @@ class PuzzlebotPublisher(Node):
         #Create Transform Broadcasters
         self.tf_br_base = TransformBroadcaster(self)
         self.tf_br_base_footprint = TransformBroadcaster(self)
-        self.tf_br_wheelr = TransformBroadcaster(self)
-        self.tf_br_wheell = TransformBroadcaster(self)
+        self.tf_br_wheel_r = TransformBroadcaster(self)
+        self.tf_br_wheel_l = TransformBroadcaster(self)
         self.tf_br_caster = TransformBroadcaster(self)
 
         #Create Markers Publishers
         self.base_marker_pub = self.create_publisher(Marker, '/base_marker', 10)
-        self.wheelr_marker_pub = self.create_publisher(Marker, '/wheelr_marker', 10)
-        self.wheell_marker_pub = self.create_publisher(Marker, '/wheell_marker', 10)
+        self.wheel_r_marker_pub = self.create_publisher(Marker, '/wheel_r_marker', 10)
+        self.wheel_l_marker_pub = self.create_publisher(Marker, '/wheel_l_marker', 10)
         self.caster_marker_pub = self.create_publisher(Marker, '/caster_marker', 10)
 
         #Create a Timer
@@ -53,16 +53,16 @@ class PuzzlebotPublisher(Node):
         time = self.get_clock().now().nanoseconds/1e9
 
         self.base.header.stamp = self.get_clock().now().to_msg()
-        self.wheelr.header.stamp = self.get_clock().now().to_msg()
-        self.wheell.header.stamp = self.get_clock().now().to_msg()
+        self.wheel_r.header.stamp = self.get_clock().now().to_msg()
+        self.wheel_l.header.stamp = self.get_clock().now().to_msg()
         self.caster.header.stamp = self.get_clock().now().to_msg()
 
         #Create Trasnform Messages
         self.base_link_tf.header.stamp = self.get_clock().now().to_msg()
-        self.base_link_tf.transform.translation.x = self.intial_pos_x + 0.5*np.cos(self.omega*time)
-        self.base_link_tf.transform.translation.y = self.intial_pos_y + 0.5*np.sin(self.omega*time)
-        self.base_link_tf.transform.translation.z = self.intial_pos_z
-        q = transforms3d.euler.euler2quat(self.intial_pos_roll, self.intial_pos_pitch, self.intial_pos_yaw+self.omega*time)       
+        self.base_link_tf.transform.translation.x = 0.0
+        self.base_link_tf.transform.translation.y = 0.0
+        self.base_link_tf.transform.translation.z = 1.0 
+        q = transforms3d.euler.euler2quat(0.0,0.0,0.0)       
         self.base_link_tf.transform.rotation.x = q[1]
         self.base_link_tf.transform.rotation.y = q[2]
         self.base_link_tf.transform.rotation.z = q[3]
@@ -79,21 +79,21 @@ class PuzzlebotPublisher(Node):
         self.base_footprint_tf.transform.rotation.w = q[0]
 
         self.wheel_r_tf.header.stamp = self.get_clock().now().to_msg()
-        q_wheelr = transforms3d.euler.euler2quat(0, 0, self.omega_wheel*time)       
-        self.wheel_r_tf.transform.rotation.x = q_wheelr[1]
-        self.wheel_r_tf.transform.rotation.y = q_wheelr[2]
-        self.wheel_r_tf.transform.rotation.z = q_wheelr[3]
-        self.wheel_r_tf.transform.rotation.w = q_wheelr[0]
+        q_wheel_r = transforms3d.euler.euler2quat(0, self.omega_wheel*time, 0)       
+        self.wheel_r_tf.transform.rotation.x = q_wheel_r[1]
+        self.wheel_r_tf.transform.rotation.y = q_wheel_r[2]
+        self.wheel_r_tf.transform.rotation.z = q_wheel_r[3]
+        self.wheel_r_tf.transform.rotation.w = q_wheel_r[0]
 
         self.wheel_l_tf.header.stamp = self.get_clock().now().to_msg()
-        q_wheell = transforms3d.euler.euler2quat(0, 0, self.omega_wheel*time)       
-        self.wheel_l_tf.transform.rotation.x = q_wheell[1]
-        self.wheel_l_tf.transform.rotation.y = q_wheell[2]
-        self.wheel_l_tf.transform.rotation.z = q_wheell[3]
-        self.wheel_l_tf.transform.rotation.w = q_wheell[0]
+        q_wheel_l = transforms3d.euler.euler2quat(0, self.omega_wheel*time, 0)       
+        self.wheel_l_tf.transform.rotation.x = q_wheel_l[1]
+        self.wheel_l_tf.transform.rotation.y = q_wheel_l[2]
+        self.wheel_l_tf.transform.rotation.z = q_wheel_l[3]
+        self.wheel_l_tf.transform.rotation.w = q_wheel_l[0]
 
         self.caster_tf.header.stamp = self.get_clock().now().to_msg()
-        q_caster = transforms3d.euler.euler2quat(0, 0, self.omega_wheel*time)       
+        q_caster = transforms3d.euler.euler2quat(0, self.omega_wheel*time, 0)       
         self.caster_tf.transform.rotation.x = q_caster[1]
         self.caster_tf.transform.rotation.y = q_caster[2]
         self.caster_tf.transform.rotation.z = q_caster[3]
@@ -101,13 +101,13 @@ class PuzzlebotPublisher(Node):
 
         self.tf_br_base.sendTransform(self.base_link_tf)
         self.tf_br_base_footprint.sendTransform(self.base_footprint_tf)
-        self.tf_br_wheelr.sendTransform(self.wheel_r_tf)
-        self.tf_br_wheell.sendTransform(self.wheel_l_tf)
+        self.tf_br_wheel_r.sendTransform(self.wheel_r_tf)
+        self.tf_br_wheel_l.sendTransform(self.wheel_l_tf)
         self.tf_br_caster.sendTransform(self.caster_tf)
 
         self.base_marker_pub.publish(self.base)
-        self.wheelr_marker_pub.publish(self.wheelr)
-        self.wheell_marker_pub.publish(self.wheell)
+        self.wheel_r_marker_pub.publish(self.wheel_r)
+        self.wheel_l_marker_pub.publish(self.wheel_l)
         self.caster_marker_pub.publish(self.caster)  
 
     def define_markers(self):
@@ -123,7 +123,7 @@ class PuzzlebotPublisher(Node):
         self.base.pose.position.x = 0.0
         self.base.pose.position.y = 0.0
         self.base.pose.position.z = 0.05
-        q_base_marker = transforms3d.euler.euler2quat(1.57, 0.0, 1.57) 
+        q_base_marker = transforms3d.euler.euler2quat(0.0, 0.0, 1.57) 
         self.base.pose.orientation.x = q_base_marker[1]
         self.base.pose.orientation.y = q_base_marker[2]
         self.base.pose.orientation.z = q_base_marker[3]
@@ -134,50 +134,51 @@ class PuzzlebotPublisher(Node):
         self.base.color.r = 1.0
         self.base.color.g = 1.0
         self.base.color.b = 0.0
+        self.base            .color.a = 1.0
 
-        self.wheelr = Marker()
-        self.wheelr.header.frame_id = "wheelr"
-        self.wheelr.header.stamp = self.get_clock().now().to_msg()
-        self.wheelr.id = 0
-        self.wheelr.type = Marker.MESH_RESOURCE
-        self.wheelr.mesh_resource = "package://puzzlebot_sim_ROS/meshes/Puzzlebot_Wheel.stl"
-        self.wheelr.action = Marker.ADD
-        self.wheelr.pose.position.x = 0.052 
-        self.wheelr.pose.position.y = -0.095
-        self.wheelr.pose.position.z = -0.0025
-        self.wheelr.pose.orientation.x = 0.0
-        self.wheelr.pose.orientation.y = 0.0
-        self.wheelr.pose.orientation.z = 0.0
-        self.wheelr.pose.orientation.w = 1.0
-        self.wheelr.scale.x = 1.0
-        self.wheelr.scale.y = 1.0
-        self.wheelr.scale.z = 1.0
-        self.wheelr.color.r = 1.0
-        self.wheelr.color.g = 1.0
-        self.wheelr.color.b = 0.0
-        self.wheelr.color.a = 1.0
+        self.wheel_r = Marker()
+        self.wheel_r.header.frame_id = "wheel_r"
+        self.wheel_r.header.stamp = self.get_clock().now().to_msg()
+        self.wheel_r.id = 0
+        self.wheel_r.type = Marker.MESH_RESOURCE
+        self.wheel_r.mesh_resource = "package://puzzlebot_sim_ROS/meshes/Puzzlebot_Wheel.stl"
+        self.wheel_r.action = Marker.ADD
+        self.wheel_r.pose.position.x = 0.0
+        self.wheel_r.pose.position.y = 0.0
+        self.wheel_r.pose.position.z = 0.0
+        self.wheel_r.pose.orientation.x = 0.0
+        self.wheel_r.pose.orientation.y = 0.0
+        self.wheel_r.pose.orientation.z = 0.0
+        self.wheel_r.pose.orientation.w = 1.0
+        self.wheel_r.scale.x = 1.0
+        self.wheel_r.scale.y = 1.0
+        self.wheel_r.scale.z = 1.0
+        self.wheel_r.color.r = 1.0
+        self.wheel_r.color.g = 1.0
+        self.wheel_r.color.b = 0.0
+        self.wheel_r.color.a = 1.0
 
-        self.wheell = Marker()
-        self.wheell.header.frame_id = "wheell"
-        self.wheell.header.stamp = self.get_clock().now().to_msg()
-        self.wheell.id = 0
-        self.wheell.type = Marker.MESH_RESOURCE
-        self.wheell.mesh_resource = "package://puzzlebot_sim_ROS/meshes/Puzzlebot_Wheel.stl"
-        self.wheell.action = Marker.ADD
-        self.wheell.pose.position.x = 0.052 
-        self.wheell.pose.position.y = 0.095
-        self.wheell.pose.position.z = -0.0025
-        self.wheell.pose.orientation.x = 0.0
-        self.wheell.pose.orientation.y = 0.0
-        self.wheell.pose.orientation.z = 0.0
-        self.wheell.pose.orientation.w = 1.0
-        self.wheell.scale.x = 1.0
-        self.wheell.scale.y = 1.0
-        self.wheell.scale.z = 1.0
-        self.wheell.color.r = 1.0
-        self.wheell.color.g = 1.0
-        self.wheell.color.b = 0.0
-        self.wheell.color.a = 1.0
+        self.wheel_l = Marker()
+        self.wheel_l.header.frame_id = "wheel_l"
+        self.wheel_l.header.stamp = self.get_clock().now().to_msg()
+        self.wheel_l.id = 0
+        self.wheel_l.type = Marker.MESH_RESOURCE
+        self.wheel_l.mesh_resource = "package://puzzlebot_sim_ROS/meshes/Puzzlebot_Wheel.stl"
+        self.wheel_l.action = Marker.ADD
+        self.wheel_l.pose.position.x = 0.0
+        self.wheel_l.pose.position.y = 0.0
+        self.wheel_l.pose.position.z = 0.0
+        self.wheel_l.pose.orientation.x = 0.0
+        self.wheel_l.pose.orientation.y = 0.0
+        self.wheel_l.pose.orientation.z = 0.0
+        self.wheel_l.pose.orientation.w = 1.0
+        self.wheel_l.scale.x = 1.0
+        self.wheel_l.scale.y = 1.0
+        self.wheel_l.scale.z = 1.0
+        self.wheel_l.color.r = 1.0
+        self.wheel_l.color.g = 1.0
+        self.wheel_l.color.b = 0.0
+        self.wheel_l.color.a = 1.0
 
         self.caster = Marker()
         self.caster.header.frame_id = "caster"
@@ -186,9 +187,9 @@ class PuzzlebotPublisher(Node):
         self.caster.type = Marker.MESH_RESOURCE
         self.caster.mesh_resource = "package://puzzlebot_sim_ROS/meshes/Puzzlebot_Caster_Wheel.stl"
         self.caster.action = Marker.ADD
-        self.caster.pose.position.x = -0.095 
+        self.caster.pose.position.x = 0.0
         self.caster.pose.position.y = 0.0
-        self.caster.pose.position.z = -0.03
+        self.caster.pose.position.z = 0.0
         self.caster.pose.orientation.x = 0.0
         self.caster.pose.orientation.y = 0.0
         self.caster.pose.orientation.z = 0.0
@@ -208,9 +209,9 @@ class PuzzlebotPublisher(Node):
         self.base_footprint_tf.header.stamp = self.get_clock().now().to_msg()
         self.base_footprint_tf.header.frame_id = 'odom'
         self.base_footprint_tf.child_frame_id = 'base_footprint'
-        self.base_footprint_tf.transform.translation.x = self.intial_pos_x
-        self.base_footprint_tf.transform.translation.y = self.intial_pos_y
-        self.base_footprint_tf.transform.translation.z = 0.0
+        self.base_footprint_tf.transform.translation.x = 0.0
+        self.base_footprint_tf.transform.translation.y = 0.0
+        self.base_footprint_tf.transform.translation.z = self.intial_pos_z
         q_foot = transforms3d.euler.euler2quat(self.intial_pos_roll, self.intial_pos_pitch, self.intial_pos_yaw)       
         self.base_footprint_tf.transform.rotation.x = q_foot[1]
         self.base_footprint_tf.transform.rotation.y = q_foot[2]
@@ -241,11 +242,11 @@ class PuzzlebotPublisher(Node):
         self.wheel_r_tf.transform.translation.x = 0.06717
         self.wheel_r_tf.transform.translation.y = 0.082
         self.wheel_r_tf.transform.translation.z = -0.0125
-        q_wheelr = transforms3d.euler.euler2quat(0, 0, 0)       
-        self.wheel_r_tf.transform.rotation.x = q_wheelr[1]
-        self.wheel_r_tf.transform.rotation.y = q_wheelr[2]
-        self.wheel_r_tf.transform.rotation.z = q_wheelr[3]
-        self.wheel_r_tf.transform.rotation.w = q_wheelr[0]
+        q_wheel_r = transforms3d.euler.euler2quat(0, 0, 0)       
+        self.wheel_r_tf.transform.rotation.x = q_wheel_r[1]
+        self.wheel_r_tf.transform.rotation.y = q_wheel_r[2]
+        self.wheel_r_tf.transform.rotation.z = q_wheel_r[3]
+        self.wheel_r_tf.transform.rotation.w = q_wheel_r[0]
 
 
         self.wheel_l_tf = TransformStamped()
@@ -255,11 +256,11 @@ class PuzzlebotPublisher(Node):
         self.wheel_l_tf.transform.translation.x = -0.06717
         self.wheel_l_tf.transform.translation.y = 0.082
         self.wheel_l_tf.transform.translation.z = -0.0125
-        q_wheell = transforms3d.euler.euler2quat(0, 0, 0)       
-        self.wheel_l_tf.transform.rotation.x = q_wheell[1]
-        self.wheel_l_tf.transform.rotation.y = q_wheell[2]
-        self.wheel_l_tf.transform.rotation.z = q_wheell[3]
-        self.wheel_l_tf.transform.rotation.w = q_wheell[0]
+        q_wheel_l = transforms3d.euler.euler2quat(0, 0, 0)       
+        self.wheel_l_tf.transform.rotation.x = q_wheel_l[1]
+        self.wheel_l_tf.transform.rotation.y = q_wheel_l[2]
+        self.wheel_l_tf.transform.rotation.z = q_wheel_l[3]
+        self.wheel_l_tf.transform.rotation.w = q_wheel_l[0]
 
         self.caster_tf = TransformStamped()
         self.caster_tf.header.stamp = self.get_clock().now().to_msg()
