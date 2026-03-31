@@ -61,7 +61,7 @@ class PuzzlebotPublisher(Node):
         self.base_link_tf.header.stamp = self.get_clock().now().to_msg()
         self.base_link_tf.transform.translation.x = 0.0
         self.base_link_tf.transform.translation.y = 0.0
-        self.base_link_tf.transform.translation.z = 1.0 
+        self.base_link_tf.transform.translation.z = 0.01 
         q = transforms3d.euler.euler2quat(0.0,0.0,0.0)       
         self.base_link_tf.transform.rotation.x = q[1]
         self.base_link_tf.transform.rotation.y = q[2]
@@ -239,9 +239,9 @@ class PuzzlebotPublisher(Node):
         self.wheel_r_tf.header.stamp = self.get_clock().now().to_msg()
         self.wheel_r_tf.header.frame_id = 'base_link'
         self.wheel_r_tf.child_frame_id = 'wheel_r'
-        self.wheel_r_tf.transform.translation.x = 0.06717
-        self.wheel_r_tf.transform.translation.y = 0.082
-        self.wheel_r_tf.transform.translation.z = 0.0
+        self.wheel_r_tf.transform.translation.x = 0.076
+        self.wheel_r_tf.transform.translation.y = 0.055
+        self.wheel_r_tf.transform.translation.z = 0.048
         q_wheel_r = transforms3d.euler.euler2quat(0, 0, 0)       
         self.wheel_r_tf.transform.rotation.x = q_wheel_r[1]
         self.wheel_r_tf.transform.rotation.y = q_wheel_r[2]
@@ -253,9 +253,9 @@ class PuzzlebotPublisher(Node):
         self.wheel_l_tf.header.stamp = self.get_clock().now().to_msg()
         self.wheel_l_tf.header.frame_id = 'base_link'
         self.wheel_l_tf.child_frame_id = 'wheel_l'
-        self.wheel_l_tf.transform.translation.x = -0.06717
-        self.wheel_l_tf.transform.translation.y = 0.082
-        self.wheel_l_tf.transform.translation.z = 0.0
+        self.wheel_l_tf.transform.translation.x = -0.076
+        self.wheel_l_tf.transform.translation.y = 0.055
+        self.wheel_l_tf.transform.translation.z = 0.048
         q_wheel_l = transforms3d.euler.euler2quat(0, 0, 0)       
         self.wheel_l_tf.transform.rotation.x = q_wheel_l[1]
         self.wheel_l_tf.transform.rotation.y = q_wheel_l[2]
