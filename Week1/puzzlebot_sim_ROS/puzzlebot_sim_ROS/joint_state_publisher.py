@@ -93,7 +93,7 @@ class PuzzlebotPublisher(Node):
         self.wheel_l_tf.transform.rotation.w = q_wheel_l[0]
 
         self.caster_tf.header.stamp = self.get_clock().now().to_msg()
-        q_caster = transforms3d.euler.euler2quat(0, self.omega_wheel*time, 0)       
+        q_caster = transforms3d.euler.euler2quat(0, 0, 0)       
         self.caster_tf.transform.rotation.x = q_caster[1]
         self.caster_tf.transform.rotation.y = q_caster[2]
         self.caster_tf.transform.rotation.z = q_caster[3]
@@ -205,6 +205,7 @@ class PuzzlebotPublisher(Node):
     def define_TF(self):
 
         #Create Trasnform Messages
+        #Base Footprint TF
         self.base_footprint_tf = TransformStamped()
         self.base_footprint_tf.header.stamp = self.get_clock().now().to_msg()
         self.base_footprint_tf.header.frame_id = 'odom'
@@ -219,7 +220,7 @@ class PuzzlebotPublisher(Node):
         self.base_footprint_tf.transform.rotation.w = q_foot[0]
 
 
-        #Create Trasnform Messages
+        #Base Link TF
         self.base_link_tf = TransformStamped()
         self.base_link_tf.header.stamp = self.get_clock().now().to_msg()
         self.base_link_tf.header.frame_id = 'base_footprint'
@@ -233,42 +234,42 @@ class PuzzlebotPublisher(Node):
         self.base_link_tf.transform.rotation.z = q[3]
         self.base_link_tf.transform.rotation.w = q[0]
 
-
+        #Wheel Rigth TF
         self.wheel_r_tf = TransformStamped()
-        #Create Trasnform Messages
         self.wheel_r_tf.header.stamp = self.get_clock().now().to_msg()
         self.wheel_r_tf.header.frame_id = 'base_link'
         self.wheel_r_tf.child_frame_id = 'wheel_r'
         self.wheel_r_tf.transform.translation.x = 0.06717
         self.wheel_r_tf.transform.translation.y = 0.082
-        self.wheel_r_tf.transform.translation.z = -0.0125
+        self.wheel_r_tf.transform.translation.z = 0.0
         q_wheel_r = transforms3d.euler.euler2quat(0, 0, 0)       
         self.wheel_r_tf.transform.rotation.x = q_wheel_r[1]
         self.wheel_r_tf.transform.rotation.y = q_wheel_r[2]
         self.wheel_r_tf.transform.rotation.z = q_wheel_r[3]
         self.wheel_r_tf.transform.rotation.w = q_wheel_r[0]
 
-
+        #Wheel Left TF
         self.wheel_l_tf = TransformStamped()
         self.wheel_l_tf.header.stamp = self.get_clock().now().to_msg()
         self.wheel_l_tf.header.frame_id = 'base_link'
         self.wheel_l_tf.child_frame_id = 'wheel_l'
         self.wheel_l_tf.transform.translation.x = -0.06717
         self.wheel_l_tf.transform.translation.y = 0.082
-        self.wheel_l_tf.transform.translation.z = -0.0125
+        self.wheel_l_tf.transform.translation.z = 0.0
         q_wheel_l = transforms3d.euler.euler2quat(0, 0, 0)       
         self.wheel_l_tf.transform.rotation.x = q_wheel_l[1]
         self.wheel_l_tf.transform.rotation.y = q_wheel_l[2]
         self.wheel_l_tf.transform.rotation.z = q_wheel_l[3]
         self.wheel_l_tf.transform.rotation.w = q_wheel_l[0]
 
+        #Caster Wheel TF
         self.caster_tf = TransformStamped()
         self.caster_tf.header.stamp = self.get_clock().now().to_msg()
         self.caster_tf.header.frame_id = 'base_link'
         self.caster_tf.child_frame_id = 'caster'
-        self.caster_tf.transform.translation.x = -0.06717
-        self.caster_tf.transform.translation.y = -0.082
-        self.caster_tf.transform.translation.z = -0.0125
+        self.caster_tf.transform.translation.x = 0.0
+        self.caster_tf.transform.translation.y = -0.075
+        self.caster_tf.transform.translation.z = 0.005
         q_caster = transforms3d.euler.euler2quat(0, 0, 0)       
         self.caster_tf.transform.rotation.x = q_caster[1]
         self.caster_tf.transform.rotation.y = q_caster[2]
