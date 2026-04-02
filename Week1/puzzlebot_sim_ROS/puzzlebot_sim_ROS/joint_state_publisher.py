@@ -69,24 +69,24 @@ class PuzzlebotPublisher(Node):
         self.base_link_tf.transform.rotation.w = q[0]
 
         self.base_footprint_tf.header.stamp = self.get_clock().now().to_msg()
-        self.base_footprint_tf.transform.translation.x = self.intial_pos_x + 0.5*np.cos(self.omega*time)
+        self.base_footprint_tf.transform.translation.x = 0.0
         self.base_footprint_tf.transform.translation.y = self.intial_pos_y + 0.5*np.sin(self.omega*time)
         self.base_footprint_tf.transform.translation.z = 0.0
-        q = transforms3d.euler.euler2quat(0, 0, self.intial_pos_yaw+self.omega*time)       
+        q = transforms3d.euler.euler2quat(0, 0, 0)       
         self.base_footprint_tf.transform.rotation.x = q[1]
         self.base_footprint_tf.transform.rotation.y = q[2]
         self.base_footprint_tf.transform.rotation.z = q[3]
         self.base_footprint_tf.transform.rotation.w = q[0]
 
         self.wheel_r_tf.header.stamp = self.get_clock().now().to_msg()
-        q_wheel_r = transforms3d.euler.euler2quat(0, self.omega_wheel*time, 0)       
+        q_wheel_r = transforms3d.euler.euler2quat(np.pi/2, self.omega_wheel*time, -np.pi/2)       
         self.wheel_r_tf.transform.rotation.x = q_wheel_r[1]
         self.wheel_r_tf.transform.rotation.y = q_wheel_r[2]
         self.wheel_r_tf.transform.rotation.z = q_wheel_r[3]
         self.wheel_r_tf.transform.rotation.w = q_wheel_r[0]
 
         self.wheel_l_tf.header.stamp = self.get_clock().now().to_msg()
-        q_wheel_l = transforms3d.euler.euler2quat(0, self.omega_wheel*time, 0)       
+        q_wheel_l = transforms3d.euler.euler2quat(np.pi/2, self.omega_wheel*time, np.pi/2)       
         self.wheel_l_tf.transform.rotation.x = q_wheel_l[1]
         self.wheel_l_tf.transform.rotation.y = q_wheel_l[2]
         self.wheel_l_tf.transform.rotation.z = q_wheel_l[3]
@@ -239,9 +239,9 @@ class PuzzlebotPublisher(Node):
         self.wheel_r_tf.header.stamp = self.get_clock().now().to_msg()
         self.wheel_r_tf.header.frame_id = 'base_link'
         self.wheel_r_tf.child_frame_id = 'wheel_r'
-        self.wheel_r_tf.transform.translation.x = 0.076
-        self.wheel_r_tf.transform.translation.y = 0.055
-        self.wheel_r_tf.transform.translation.z = 0.048
+        self.wheel_r_tf.transform.translation.x = 0.084
+        self.wheel_r_tf.transform.translation.y = 0.053
+        self.wheel_r_tf.transform.translation.z = 0.05
         q_wheel_r = transforms3d.euler.euler2quat(0, 0, 0)       
         self.wheel_r_tf.transform.rotation.x = q_wheel_r[1]
         self.wheel_r_tf.transform.rotation.y = q_wheel_r[2]
@@ -253,9 +253,9 @@ class PuzzlebotPublisher(Node):
         self.wheel_l_tf.header.stamp = self.get_clock().now().to_msg()
         self.wheel_l_tf.header.frame_id = 'base_link'
         self.wheel_l_tf.child_frame_id = 'wheel_l'
-        self.wheel_l_tf.transform.translation.x = -0.076
-        self.wheel_l_tf.transform.translation.y = 0.055
-        self.wheel_l_tf.transform.translation.z = 0.048
+        self.wheel_l_tf.transform.translation.x = -0.084
+        self.wheel_l_tf.transform.translation.y = 0.053
+        self.wheel_l_tf.transform.translation.z = 0.05
         q_wheel_l = transforms3d.euler.euler2quat(0, 0, 0)       
         self.wheel_l_tf.transform.rotation.x = q_wheel_l[1]
         self.wheel_l_tf.transform.rotation.y = q_wheel_l[2]
