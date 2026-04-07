@@ -75,7 +75,7 @@ class PuzzlebotPublisher(Node):
         self.base_footprint_tf.transform.translation.x = self.intial_pos_x + radius * np.cos(self.omega * time)
         self.base_footprint_tf.transform.translation.y = self.intial_pos_y + radius * np.sin(self.omega*time)
         self.base_footprint_tf.transform.translation.z = 0.0
-        current_yaw =  (self.omega * time) + (np.pi/2.0)
+        current_yaw =  (self.omega * time) + (2*np.pi)
         q = transforms3d.euler.euler2quat(0, 0 , current_yaw)       
         self.base_footprint_tf.transform.rotation.x = q[1]
         self.base_footprint_tf.transform.rotation.y = q[2]
