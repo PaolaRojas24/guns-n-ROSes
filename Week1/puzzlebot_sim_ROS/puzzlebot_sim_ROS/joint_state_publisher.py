@@ -21,7 +21,7 @@ class PuzzlebotPublisher(Node):
 
         #Angular velocity for the pose change and wheels
         self.omega = 0.5
-        self.omega_wheel = 100.0
+        self.omega_wheel = 1.0
 
         #Define Transformations
         self.define_TF()
@@ -79,7 +79,7 @@ class PuzzlebotPublisher(Node):
         self.base_footprint_tf.transform.rotation.w = q[0]
 
         self.wheel_r_tf.header.stamp = self.get_clock().now().to_msg()
-        q_wheel_r = transforms3d.euler.euler2quat(np.pi/2, self.omega_wheel*time, -np.pi/2)       
+        q_wheel_r = transforms3d.euler.euler2quat(np.pi/2, -self.omega_wheel*time, -np.pi/2)       
         self.wheel_r_tf.transform.rotation.x = q_wheel_r[1]
         self.wheel_r_tf.transform.rotation.y = q_wheel_r[2]
         self.wheel_r_tf.transform.rotation.z = q_wheel_r[3]
