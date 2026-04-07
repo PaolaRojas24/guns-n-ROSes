@@ -133,8 +133,8 @@ class PuzzlebotPublisher(Node):
         self.base.scale.z = 1.0
         self.base.color.r = 1.0
         self.base.color.g = 1.0
-        self.base.color.b = 0.0
-        self.base            .color.a = 1.0
+        self.base.color.b = 1.0
+        self.base.color.a = 0.5
 
         self.wheel_r = Marker()
         self.wheel_r.header.frame_id = "wheel_r"
@@ -155,8 +155,8 @@ class PuzzlebotPublisher(Node):
         self.wheel_r.scale.z = 1.0
         self.wheel_r.color.r = 1.0
         self.wheel_r.color.g = 1.0
-        self.wheel_r.color.b = 0.0
-        self.wheel_r.color.a = 1.0
+        self.wheel_r.color.b = 1.0
+        self.wheel_r.color.a = 0.7
 
         self.wheel_l = Marker()
         self.wheel_l.header.frame_id = "wheel_l"
@@ -177,8 +177,8 @@ class PuzzlebotPublisher(Node):
         self.wheel_l.scale.z = 1.0
         self.wheel_l.color.r = 1.0
         self.wheel_l.color.g = 1.0
-        self.wheel_l.color.b = 0.0
-        self.wheel_l.color.a = 1.0
+        self.wheel_l.color.b = 1.0
+        self.wheel_l.color.a = 0.7
 
         self.caster = Marker()
         self.caster.header.frame_id = "caster"
@@ -197,9 +197,9 @@ class PuzzlebotPublisher(Node):
         self.caster.scale.x = 1.0
         self.caster.scale.y = 1.0
         self.caster.scale.z = 1.0
-        self.caster.color.r = 1.0
-        self.caster.color.g = 1.0
-        self.caster.color.b = 0.0
+        self.caster.color.r = 0.5
+        self.caster.color.g = 0.5
+        self.caster.color.b = 0.5
         self.caster.color.a = 1.0
 
     def define_TF(self):
