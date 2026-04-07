@@ -52,6 +52,9 @@ class PuzzlebotPublisher(Node):
 
         time = self.get_clock().now().nanoseconds/1e9
 
+        #Parametros del circulo 
+        radius = 1.0
+
         self.base.header.stamp = self.get_clock().now().to_msg()
         self.wheel_r.header.stamp = self.get_clock().now().to_msg()
         self.wheel_l.header.stamp = self.get_clock().now().to_msg()
@@ -69,10 +72,11 @@ class PuzzlebotPublisher(Node):
         self.base_link_tf.transform.rotation.w = q[0]
 
         self.base_footprint_tf.header.stamp = self.get_clock().now().to_msg()
-        self.base_footprint_tf.transform.translation.x = 0.0
-        self.base_footprint_tf.transform.translation.y = self.intial_pos_y + 0.5*np.sin(self.omega*time)
+        self.base_footprint_tf.transform.translation.x = self.intial_pos_x + radius * np.cos(self.omega * time)
+        self.base_footprint_tf.transform.translation.y = self.intial_pos_y + radius * np.sin(self.omega*time)
         self.base_footprint_tf.transform.translation.z = 0.0
-        q = transforms3d.euler.euler2quat(0, 0, 0)       
+        current_yaw =  (self.omega * time) + (np.pi/2.0)
+        q = transforms3d.euler.euler2quat(0, 0 , current_yaw)       
         self.base_footprint_tf.transform.rotation.x = q[1]
         self.base_footprint_tf.transform.rotation.y = q[2]
         self.base_footprint_tf.transform.rotation.z = q[3]
