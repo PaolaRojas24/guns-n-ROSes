@@ -21,7 +21,7 @@ class PuzzlebotPublisher(Node):
 
         #Angular velocity for the pose change and wheels
         self.omega = 0.5
-        self.omega_wheel = 1.0
+        self.omega_wheel = 3.0
 
         #Define Transformations
         self.define_TF()
@@ -53,7 +53,7 @@ class PuzzlebotPublisher(Node):
         time = self.get_clock().now().nanoseconds/1e9
 
         #Parametros del circulo 
-        radius = 1.0
+        radius = 0.8
 
         self.base.header.stamp = self.get_clock().now().to_msg()
         self.wheel_r.header.stamp = self.get_clock().now().to_msg()
@@ -64,7 +64,7 @@ class PuzzlebotPublisher(Node):
         self.base_link_tf.header.stamp = self.get_clock().now().to_msg()
         self.base_link_tf.transform.translation.x = 0.0
         self.base_link_tf.transform.translation.y = 0.0
-        self.base_link_tf.transform.translation.z = 0.01 
+        self.base_link_tf.transform.translation.z = 0.06 
         q = transforms3d.euler.euler2quat(0.0,0.0,0.0)       
         self.base_link_tf.transform.rotation.x = q[1]
         self.base_link_tf.transform.rotation.y = q[2]
@@ -73,7 +73,7 @@ class PuzzlebotPublisher(Node):
 
         self.base_footprint_tf.header.stamp = self.get_clock().now().to_msg()
         self.base_footprint_tf.transform.translation.x = self.intial_pos_x + radius * np.cos(self.omega * time)
-        self.base_footprint_tf.transform.translation.y = self.intial_pos_y + radius * np.sin(self.omega*time)
+        self.base_footprint_tf.transform.translation.y = self.intial_pos_y + radius * np.sin(self.omega * time)
         self.base_footprint_tf.transform.translation.z = 0.0
         current_yaw =  (self.omega * time) + (2*np.pi)
         q = transforms3d.euler.euler2quat(0, 0 , current_yaw)       
@@ -83,7 +83,7 @@ class PuzzlebotPublisher(Node):
         self.base_footprint_tf.transform.rotation.w = q[0]
 
         self.wheel_r_tf.header.stamp = self.get_clock().now().to_msg()
-        q_wheel_r = transforms3d.euler.euler2quat(np.pi/2, -self.omega_wheel*time, -np.pi/2)       
+        q_wheel_r = transforms3d.euler.euler2quat(np.pi/2, -self.omega_wheel*time*1.5, -np.pi/2)       
         self.wheel_r_tf.transform.rotation.x = q_wheel_r[1]
         self.wheel_r_tf.transform.rotation.y = q_wheel_r[2]
         self.wheel_r_tf.transform.rotation.z = q_wheel_r[3]
@@ -126,7 +126,7 @@ class PuzzlebotPublisher(Node):
         self.base.action = Marker.ADD
         self.base.pose.position.x = 0.0
         self.base.pose.position.y = 0.0
-        self.base.pose.position.z = 0.05
+        self.base.pose.position.z = -0.01
         q_base_marker = transforms3d.euler.euler2quat(0.0, 0.0, 1.57) 
         self.base.pose.orientation.x = q_base_marker[1]
         self.base.pose.orientation.y = q_base_marker[2]
@@ -245,7 +245,7 @@ class PuzzlebotPublisher(Node):
         self.wheel_r_tf.child_frame_id = 'wheel_r'
         self.wheel_r_tf.transform.translation.x = 0.084
         self.wheel_r_tf.transform.translation.y = 0.053
-        self.wheel_r_tf.transform.translation.z = 0.05
+        self.wheel_r_tf.transform.translation.z = 0.05 - 0.06
         q_wheel_r = transforms3d.euler.euler2quat(0, 0, 0)       
         self.wheel_r_tf.transform.rotation.x = q_wheel_r[1]
         self.wheel_r_tf.transform.rotation.y = q_wheel_r[2]
@@ -259,7 +259,7 @@ class PuzzlebotPublisher(Node):
         self.wheel_l_tf.child_frame_id = 'wheel_l'
         self.wheel_l_tf.transform.translation.x = -0.084
         self.wheel_l_tf.transform.translation.y = 0.053
-        self.wheel_l_tf.transform.translation.z = 0.05
+        self.wheel_l_tf.transform.translation.z = 0.05 - 0.06
         q_wheel_l = transforms3d.euler.euler2quat(0, 0, 0)       
         self.wheel_l_tf.transform.rotation.x = q_wheel_l[1]
         self.wheel_l_tf.transform.rotation.y = q_wheel_l[2]
@@ -273,7 +273,7 @@ class PuzzlebotPublisher(Node):
         self.caster_tf.child_frame_id = 'caster'
         self.caster_tf.transform.translation.x = 0.0
         self.caster_tf.transform.translation.y = -0.075
-        self.caster_tf.transform.translation.z = 0.005
+        self.caster_tf.transform.translation.z = 0.005 - 0.06
         q_caster = transforms3d.euler.euler2quat(0, 0, 0)       
         self.caster_tf.transform.rotation.x = q_caster[1]
         self.caster_tf.transform.rotation.y = q_caster[2]
