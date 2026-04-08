@@ -28,7 +28,7 @@ def generate_launch_description():
                                 )
     
     
-    puzzledrone_node = Node(name="puzzlebot",
+    puzzle_node = Node(name="puzzlebot",
                             package='puzzlebot_sim_ROS',
                             executable='joint_state_publisher'
                             )
@@ -50,6 +50,6 @@ def generate_launch_description():
                     executable='rqt_tf_tree'
                     )
 
-    l_d = LaunchDescription([static_transform_node, static_transform_node_2 , rqt_tf_tree_node, rviz_node, puzzledrone_node])
+    l_d = LaunchDescription([static_transform_node, static_transform_node_2 , rqt_tf_tree_node, rviz_node, puzzle_node])
 
     return l_d
