@@ -27,7 +27,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'joint_state_publisher = puzzlebot_urdf_ROS.joint_state_publisher:main'
+             'puzzlebot_publisher = puzzlebot_urdf_ROS.puzzlebot_publisher:main',
+             'joint_state_publisher = puzzlebot_urdf_ROS.joint_state_publisher:main'
         ],
     },
 )
