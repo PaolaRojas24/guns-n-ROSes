@@ -15,21 +15,6 @@ def generate_launch_description():
     with open(urdf_file, 'r') as f:
         robot_description = f.read()
 
-    # ── Launch arguments ──────────────────────────────────────────────────────
-    use_rviz_arg = DeclareLaunchArgument(
-        'use_rviz',
-        default_value='true',
-        description='Launch RViz2 for visualization'
-    )
-    use_rviz = LaunchConfiguration('use_rviz')
-
-    rviz_config_arg = DeclareLaunchArgument(
-        'rviz_config',
-        default_value=os.path.join(pkg_share, 'rviz', 'puzzlebot.rviz'),
-        description='Path to the RViz2 config file'
-    )
-    rviz_config = LaunchConfiguration('rviz_config')
-
     # ── Nodes ─────────────────────────────────────────────────────────────────
 
     robot_state_publisher_node = Node(
@@ -59,14 +44,17 @@ def generate_launch_description():
         parameters=[{'use_sim_time': False}]
     )
 
-    rviz_node = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        output='screen',
-        arguments=['-d', rviz_config],
-        condition=IfCondition(use_rviz)   # ← clean import, no __import__ hack
-    )
+    rviz_config = os.path.join(
+                            get_package_share_directory('puzzlebot_urdf_ROS'),
+                            'rviz',
+                            'puzzlebot_rviz.rviz'
+                            )
+
+    rviz_node = Node(name='rviz',
+                    package='rviz2',
+                    executable='rviz2',
+                    arguments=['-d', rviz_config]
+                    )
 
     rqt_tf_tree_node = Node(
         package='rqt_gui',
@@ -77,8 +65,6 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        use_rviz_arg,
-        rviz_config_arg,
         robot_state_publisher_node,
         joint_state_publisher_node,
         puzzlebot_publisher_node,
