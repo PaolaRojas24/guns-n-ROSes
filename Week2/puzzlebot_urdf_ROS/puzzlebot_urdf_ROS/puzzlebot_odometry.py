@@ -69,7 +69,7 @@ class PuzzlebotOdometry(Node):
 
         # Extract wheel angular velocities (rad/s)
         self.vr = msg.velocity[idx_r]
-        self.vl = msg.velocity[idx_l] # IDK, probably due to definition on URDF
+        self.vl = msg.velocity[idx_l] 
 
         # ── Time handling ────────────────────────────────────────────────────────
         now = self.get_clock().now()
