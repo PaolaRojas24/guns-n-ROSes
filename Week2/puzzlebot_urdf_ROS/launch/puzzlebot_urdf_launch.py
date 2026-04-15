@@ -59,7 +59,7 @@ def generate_launch_description():
     output='screen',
     parameters=[{
         'omega_wheel_r': 2.0,
-        'omega_wheel_l': -1.5,  
+        'omega_wheel_l': 1.5,  
         'timer_period': 0.05,
         }]
     )

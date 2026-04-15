@@ -58,7 +58,7 @@
   <!-- wheel_l -->
   <link name="wheel_l">
     <visual>
-      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>  
+      <origin xyz="0.0 0.0 0.0" rpy="3.1416 0.0 0.0"/>  
       <geometry>
         <mesh filename="package://puzzlebot_urdf_ROS/meshes/Puzzlebot_Wheel.stl" scale="1 1 1"/>
       </geometry>
@@ -102,7 +102,7 @@
   <joint name="base_link_to_wheel_l" type="continuous">
     <parent link="base_link"/>
     <child  link="wheel_l"/>
-    <origin xyz="-0.084 0.053 -0.01" rpy="3.1416 -1.5708 0.0"/> 
+    <origin xyz="-0.084 0.053 -0.01" rpy="0.0 -1.5708 0.0"/> 
     <axis xyz="0 0 1"/>
   </joint>
 
