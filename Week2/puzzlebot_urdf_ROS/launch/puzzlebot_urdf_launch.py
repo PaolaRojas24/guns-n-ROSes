@@ -61,7 +61,8 @@ def generate_launch_description():
     name='puzzlebot_joint_state_publisher',
     output='screen',
     parameters=[{
-        'omega_wheel': 1.0,   
+        'omega_wheel_r': 2.0,
+        'omega_wheel_l': -1.5,  
         'timer_period': 0.05,
         }]
     )
@@ -73,7 +74,7 @@ def generate_launch_description():
     output='screen',
     parameters=[{
         'wheel_radius': 0.05,
-        'wheel_base':   0.18,
+        'wheel_base':   0.108,
     }]
 )
 

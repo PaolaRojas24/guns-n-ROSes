@@ -83,8 +83,8 @@ class PuzzlebotOdometry(Node):
             return
 
         # ── Differential-drive kinematics ────────────────────────────────────────
-        v_robot = self.r * (self.vr + self.vl) / 2.0
-        w_robot = self.r * (self.vr - self.vl) / self.L
+        v_robot = self.r * -(self.vr + self.vl) / 2.0
+        w_robot = self.r * -(self.vl - self.vr) / self.L
 
         # Update pose
         self.x += v_robot * math.cos(self.yaw) * dt
@@ -95,8 +95,11 @@ class PuzzlebotOdometry(Node):
         self.yaw = math.atan2(math.sin(self.yaw), math.cos(self.yaw))
 
         # ── Convert yaw to quaternion ────────────────────────────────────────────
-        qz = math.sin(self.yaw / 2.0)
-        qw = math.cos(self.yaw / 2.0)
+        yaw_corrected = self.yaw + math.pi / 2.0
+
+        # Convert to quaternion
+        qz = math.sin(yaw_corrected / 2.0)
+        qw = math.cos(yaw_corrected / 2.0)
 
         # ── Publish odom → base_footprint TF ─────────────────────────────────────
         t = TransformStamped()

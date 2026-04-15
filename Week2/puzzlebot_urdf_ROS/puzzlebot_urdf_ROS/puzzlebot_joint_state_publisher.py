@@ -9,10 +9,12 @@ class PuzzlebotJointStatePublisher(Node):
         super().__init__('puzzlebot_joint_state_publisher')
 
         # ── Parameters ────────────────────────────────────────────────────────
-        self.declare_parameter('omega_wheel', 1.0)   # rad/s — wheel spin speed
+        self.declare_parameter('omega_wheel_r', 1.0)   # rad/s — wheel spin speed
+        self.declare_parameter('omega_wheel_l', 1.0)   # rad/s — wheel spin speed
         self.declare_parameter('timer_period', 0.05) # seconds — publish rate
 
-        self.omega_wheel  = self.get_parameter('omega_wheel').value
+        self.omega_wheel_r  = self.get_parameter('omega_wheel_r').value
+        self.omega_wheel_l  = self.get_parameter('omega_wheel_l').value
         timer_period      = self.get_parameter('timer_period').value
 
         # ── State ─────────────────────────────────────────────────────────────
@@ -24,9 +26,6 @@ class PuzzlebotJointStatePublisher(Node):
 
         # ── Timer ─────────────────────────────────────────────────────────────
         self.timer = self.create_timer(timer_period, self.timer_cb)
-        self.get_logger().info(
-            f'Joint state publisher started — omega_wheel={self.omega_wheel} rad/s'
-        )
 
     # ── Timer callback ────────────────────────────────────────────────────────
     def timer_cb(self):
@@ -34,8 +33,8 @@ class PuzzlebotJointStatePublisher(Node):
         dt = self.timer.timer_period_ns / 1e9  
 
         # Integrate angle
-        self.angle_r += self.omega_wheel * dt
-        self.angle_l += self.omega_wheel * dt
+        self.angle_r += self.omega_wheel_r * dt
+        self.angle_l += self.omega_wheel_l * dt
 
         # Build message
         msg = JointState()
@@ -43,7 +42,7 @@ class PuzzlebotJointStatePublisher(Node):
 
         msg.name     = ['base_link_to_wheel_r', 'base_link_to_wheel_l']
         msg.position = [self.angle_r, self.angle_l]
-        msg.velocity = [self.omega_wheel, self.omega_wheel]
+        msg.velocity = [self.omega_wheel_r, self.omega_wheel_l]
         msg.effort   = []
 
         self.pub.publish(msg)
