@@ -1,3 +1,6 @@
+# Launcher for the Challenge 2 Mancherter - guns-n-ROSes
+# Reads URDF and confing file of Rviz.
+
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -9,39 +12,33 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
 
+    # ── Reads the URDF to launch Robot Description ────────────────────────────
     pkg_share = get_package_share_directory('puzzlebot_urdf_ROS')
     urdf_file = os.path.join(pkg_share, 'urdf', 'puzzlebot.urdf')
 
     with open(urdf_file, 'r') as f:
         robot_description = f.read()
 
-    # ── Launch arguments ──────────────────────────────────────────────────────
-    use_rviz_arg = DeclareLaunchArgument(
-        'use_rviz',
-        default_value='true',
-        description='Launch RViz2 for visualization'
-    )
-    use_rviz = LaunchConfiguration('use_rviz')
-
-    rviz_config_arg = DeclareLaunchArgument(
-        'rviz_config',
-        default_value=os.path.join(pkg_share, 'rviz', 'puzzlebot.rviz'),
-        description='Path to the RViz2 config file'
-    )
-    rviz_config = LaunchConfiguration('rviz_config')
-
     # ── Nodes ─────────────────────────────────────────────────────────────────
 
     static_transform_node = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        arguments=['0', '0.5', '0', '0', '0', '0', 'map', 'odom']
+        arguments = [
+            '--x', '2', '--y', '1', '--z', '0.0',
+            '--yaw', '0.0', '--pitch', '0', '--roll', '0.0',
+            '--frame-id', 'map', '--child-frame-id', 'odom'
+        ]
     )
 
     static_transform_node_2 = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        arguments=['0', '0', '0', '0', '0', '0', 'world', 'map']
+        arguments = [
+            '--x', '0', '--y', '0', '--z', '0.0',
+            '--yaw', '0.0', '--pitch', '0', '--roll', '0.0',
+            '--frame-id', 'world', '--child-frame-id', 'map'
+        ]
     )
 
     robot_state_publisher_node = Node(
@@ -86,22 +83,20 @@ def generate_launch_description():
         arguments=['--standalone', 'rqt_tf_tree']
     )
 
+    # ── Launch Rviz ───────────────────────────────────────────────────────────
     rviz_config = os.path.join(
-                            get_package_share_directory('puzzlebot_urdf_ROS'),
-                            'rviz',
-                            'puzzlebot_rviz.rviz'
-                            )
+        get_package_share_directory('puzzlebot_urdf_ROS'),
+        'rviz',
+        'puzzlebot_rviz.rviz'
+    )
 
     rviz_node = Node(name='rviz',
-                    package='rviz2',
-                    executable='rviz2',
-                    arguments=['-d', rviz_config]
-                    )
-
+        package='rviz2',
+        executable='rviz2',
+        arguments=['-d', rviz_config]
+    )
 
     return LaunchDescription([
-        use_rviz_arg,
-        rviz_config_arg,
         static_transform_node,
     	static_transform_node_2,
         robot_state_publisher_node,

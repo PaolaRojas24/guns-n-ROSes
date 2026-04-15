@@ -1,3 +1,8 @@
+# Odometry Node to Listen Wheel Velocities and Calculate position and Rotation. - guns-n-ROSes
+# Reads velocity of each wheels and uses kinematics to calculate position
+# Has as parameters physical data of the Diferencial Robot. Wheel Radius and distance between wheels.
+# Has some problems due to URDF definitions so has many adjustment to the standart diferencial model.
+
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
@@ -14,7 +19,7 @@ class PuzzlebotOdometry(Node):
 
         # ── Parameters ────────────────────────────────────────────────────────
         self.declare_parameter('wheel_radius', 0.05)  # m
-        self.declare_parameter('wheel_base',   0.18)  # m (L, distance between wheels)
+        self.declare_parameter('wheel_base',   0.108)  # m (distance between wheels)
 
         self.r = self.get_parameter('wheel_radius').value
         self.L = self.get_parameter('wheel_base').value
@@ -44,9 +49,8 @@ class PuzzlebotOdometry(Node):
 
     # ── Joint states callback ─────────────────────────────────────────────────
     def joint_states_cb(self, msg: JointState):
-        """Compute and publish odometry from wheel joint states."""
 
-        # ── Ensure required joints exist ─────────────────────────────────────────
+        # ── Try to listen to Subscriver ─────────────────────────────────────────
         try:
             idx_r = msg.name.index('base_link_to_wheel_r')
             idx_l = msg.name.index('base_link_to_wheel_l')
@@ -65,12 +69,12 @@ class PuzzlebotOdometry(Node):
 
         # Extract wheel angular velocities (rad/s)
         self.vr = msg.velocity[idx_r]
-        self.vl = -msg.velocity[idx_l]
+        self.vl = -msg.velocity[idx_l] # IDK, probably due to definition on URDF
 
         # ── Time handling ────────────────────────────────────────────────────────
         now = self.get_clock().now()
 
-        # Initialize time on the first callback
+        # Initialize time
         if self.prev_time is None:
             self.prev_time = now
             return
@@ -78,11 +82,12 @@ class PuzzlebotOdometry(Node):
         dt = (now - self.prev_time).nanoseconds / 1e9
         self.prev_time = now
 
-        # Prevent invalid integration
+        # Prevent error of invalid integration
         if dt <= 0.0:
             return
 
         # ── Differential-drive kinematics ────────────────────────────────────────
+        # IDK why so many negatives, probably problems with URDF way of defining. But it works
         v_robot = self.r * -(self.vr + self.vl) / 2.0
         w_robot = self.r * -(self.vl - self.vr) / self.L
 
@@ -95,13 +100,15 @@ class PuzzlebotOdometry(Node):
         self.yaw = math.atan2(math.sin(self.yaw), math.cos(self.yaw))
 
         # ── Convert yaw to quaternion ────────────────────────────────────────────
+        
+        # Again problems with URDF definition, this is beacuse the Robot its defined in Y insted of X axis.
         yaw_corrected = self.yaw + math.pi / 2.0
 
         # Convert to quaternion
         qz = math.sin(yaw_corrected / 2.0)
         qw = math.cos(yaw_corrected / 2.0)
 
-        # ── Publish odom → base_footprint TF ─────────────────────────────────────
+        # ── Publish odom to base_footprint TF ─────────────────────────────────────
         t = TransformStamped()
         t.header.stamp = now.to_msg()
         t.header.frame_id = 'odom'

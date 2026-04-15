@@ -2,6 +2,14 @@
 <robot name="puzzlebot">
 
   <!-- =========================================================
+       URDF - Puzzlebot
+       guns-n-ROSes
+       Only Material and Links
+       May have problems with the way of defining TFs that 
+       lead to weird conversions on the odometry.
+  ========================================================= -->
+
+  <!-- =========================================================
        MATERIALS
   ========================================================= -->
   <material name="white_transparent">
