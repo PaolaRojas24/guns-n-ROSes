@@ -44,27 +44,6 @@ def generate_launch_description():
             '--frame-id', 'world', '--child-frame-id', 'map'
         ]
     )
-    
-    trayectory_node = Node(
-                        package='puzzlebot_sim3',
-                        executable='trayectory_node',
-                        name='trayectory_node',
-                        output='screen',
-    )
-
-    control_node = Node(
-                        package='puzzlebot_sim3',
-                        executable='point_stabilisation_control',
-                        name='control_node',
-                        output='screen',
-    )
-
-    localisation_node = Node(
-                        package='puzzlebot_sim3',
-                        executable='localisation',
-                        name='localisation_node',
-                        output='screen',
-    )
 
     joint_state_publisher_node = Node(
                         package='puzzlebot_sim3',
@@ -98,7 +77,7 @@ def generate_launch_description():
     plot_node = Node(name='rqt_plot',
                     package='rqt_plot',
                     executable='rqt_plot',
-                    arguments=['/pose_sim/pose/position/x', '/pose_sim/pose/position/y'],
+                    arguments=['/cmd_vel/linear/x', '/cmd_vel/linear/y'],
                     )
     
     plot_node_2 = Node(name='rqt_plot',
@@ -135,9 +114,6 @@ def generate_launch_description():
     l_d = LaunchDescription([
         static_transform_node,
         static_transform_node_2,
-        trayectory_node,
-        control_node,
-        localisation_node,
         joint_state_publisher_node,
         puzzlebot_sim,
         robot_state_pub_node,
