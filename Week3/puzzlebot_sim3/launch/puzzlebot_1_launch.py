@@ -45,6 +45,13 @@ def generate_launch_description():
         ]
     )
 
+    localisation_node = Node(
+                        package='puzzlebot_sim3',
+                        executable='localisation',
+                        name='localisation_node',
+                        output='screen',
+    )
+
     joint_state_publisher_node = Node(
                         package='puzzlebot_sim3',
                         executable='joint_state_pub',
@@ -114,6 +121,7 @@ def generate_launch_description():
     l_d = LaunchDescription([
         static_transform_node,
         static_transform_node_2,
+        localisation_node,
         joint_state_publisher_node,
         puzzlebot_sim,
         robot_state_pub_node,
