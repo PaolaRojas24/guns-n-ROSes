@@ -51,6 +51,8 @@ class PointStabilisationNode(Node):
         period = 1.0 / self.get_parameter('control_rate').value
         self.create_timer(period, self.control_loop)
 
+        self._reset_pid()
+
         self.get_logger().info('Nodo listo.')
 
     def _load_params(self):
@@ -71,7 +73,7 @@ class PointStabilisationNode(Node):
         self.err_lin_prev = 0.0
         self.err_ang_prev = 0.0
         self.int_lin = 0.0
-        self.max_ang = 0.0
+        self.int_ang = 0.0
         
 
     #Callbacks
