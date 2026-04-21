@@ -65,12 +65,12 @@ class DeadReckoning(Node):
             return
 
         # ── Differential-drive kinematics (your model) ────────────────────────
-        v_robot = self.r * -(self.wr + self.wl) / 2.0
-        w_robot = self.r * -(self.wl - self.wr) / self.L
+        v_robot = self.r * (self.wr + self.wl) / 2.0
+        w_robot = self.r * (self.wl - self.wr) / self.L
 
         # ── Pose integration ──────────────────────────────────────────────────
-        self.x   += v_robot * math.cos(self.yaw) * dt
-        self.y   += v_robot * math.sin(self.yaw) * dt
+        self.x   += v_robot * math.cos(self.yaw + math.pi / 2.0) * dt
+        self.y   += v_robot * math.sin(self.yaw + math.pi / 2.0) * dt
         self.yaw += w_robot * dt
 
         # Normalize yaw to [-π, π]
