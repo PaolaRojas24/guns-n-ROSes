@@ -6,10 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /RobotModel1
         - /TF1
-        - /Odometry1
-        - /Odometry1/Shape1
       Splitter Ratio: 0.5
     Tree Height: 549
   - Class: rviz_common/Selection
@@ -53,12 +50,12 @@ Visualization Manager:
       Value: true
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
-      Collision Enabled: false
       Description File: ""
       Description Source: Topic
       Description Topic:
         Depth: 5
         Durability Policy: Volatile
+        Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /robot_description
@@ -68,73 +65,36 @@ Visualization Manager:
         Expand Joint Details: false
         Expand Link Details: false
         Expand Tree: false
-        Link Tree Style: Links in Alphabetic Order
-        base_footprint:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        camera_base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        caster_holder_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        lidar_base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        wheel_left_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        wheel_right_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-      Mass Properties:
-        Inertia: false
-        Mass: false
+        Link Tree Style: Links in Alphabetical Order
       Name: RobotModel
       TF Prefix: ""
       Update Interval: 0
       Value: true
       Visual Enabled: true
+      Collision Enabled: false
+      Mass Properties:
+        Inertia: false
+        Mass: false
     - Class: rviz_default_plugins/TF
       Enabled: true
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        base_footprint:
-          Value: true
         base_link:
-          Value: true
-        camera_base_link:
-          Value: true
-        caster_holder_link:
-          Value: true
-        lidar_base_link:
           Value: true
         map:
           Value: true
         odom:
           Value: true
-        wheel_left_link:
+        wheel_r:
           Value: true
-        wheel_right_link:
+        wheel_l:
+          Value: true
+        caster:
           Value: true
         world:
           Value: true
-      Marker Scale: 0.20000000298023224
+      Marker Scale: 0.25
       Name: TF
       Show Arrows: true
       Show Axes: true
@@ -143,63 +103,19 @@ Visualization Manager:
         world:
           map:
             odom:
-              base_footprint:
-                base_link:
-                  camera_base_link:
-                    {}
-                  caster_holder_link:
-                    {}
-                  lidar_base_link:
-                    {}
-                  wheel_left_link:
-                    {}
-                  wheel_right_link:
-                    {}
+              base_link:
+                wheel_r:
+                  {}
+                wheel_l:
+                  {}
+                caster:
+                  {}
       Update Interval: 0
-      Value: true
-    - Angle Tolerance: 0.10000000149011612
-      Class: rviz_default_plugins/Odometry
-      Covariance:
-        Orientation:
-          Alpha: 0.5
-          Color: 255; 255; 127
-          Color Style: Unique
-          Frame: Local
-          Offset: 1
-          Scale: 1
-          Value: true
-        Position:
-          Alpha: 0.30000001192092896
-          Color: 204; 51; 204
-          Scale: 1
-          Value: true
-        Value: false
-      Enabled: true
-      Keep: 10
-      Name: Odometry
-      Position Tolerance: 0.10000000149011612
-      Shape:
-        Alpha: 0.5
-        Axes Length: 1
-        Axes Radius: 0.10000000149011612
-        Color: 255; 25; 0
-        Head Length: 0.05000000074505806
-        Head Radius: 0.07999999821186066
-        Shaft Length: 0.30000001192092896
-        Shaft Radius: 0.05000000074505806
-        Value: Arrow
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /odom
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: world
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:
@@ -242,25 +158,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 6.864915370941162
+      Distance: 4.4148
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 3.114902973175049
-        Y: -0.14113622903823853
-        Z: -0.8408172130584717
+        X: -3.23797
+        Y: -0.00227034
+        Z: -0.818225
       Focal Shape Fixed Size: true
-      Focal Shape Size: 0.05000000074505806
+      Focal Shape Size: 0.05
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6853982210159302
+      Pitch: 0.255624
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.855394721031189
+      Yaw: 6.17777
     Saved: ~
 Window Geometry:
   Displays:
@@ -278,5 +194,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1200
-  X: 483
-  Y: 61
+  X: 70
+  Y: 60
