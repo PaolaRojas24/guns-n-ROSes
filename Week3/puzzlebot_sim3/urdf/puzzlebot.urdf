@@ -1,112 +1,117 @@
 <?xml version="1.0"?>
-<robot name="Puzzlebot_Jetson_Lidar_Ed.">
+<robot name="puzzlebot">
 
-<!--LINKS-->
+  <!-- =========================================================
+      URDF - Puzzlebot
+        guns-n-ROSes
+      Only Material and Links
+      May have problems with the way of defining TFs that 
+      lead to weird conversions on the odometry.
+  ========================================================= -->
 
-<!-- Dummy link to fix robot chassis -->
-    <link name="base_footprint">
-    </link>
-  
-    <link name="base_link">
-        <visual>
-            <origin xyz="0.050 0 0.0965" rpy="1.5708 0 3.1416"/>
-            <geometry>
-                <mesh filename="package://puzzlebot_sim3/meshes/MCR2_puzzlebot_jetson_lidar_base.stl"/>
-            </geometry>
-            <material name="yellow">
-                <color rgba="0.8 0.8 0.05 1.0"/>
-            </material>
-        </visual>
-    </link>
+  <!-- =========================================================
+       MATERIALS
+  ========================================================= -->
+  <material name="white_transparent">
+    <color rgba="1.0 1.0 1.0 0.5"/>
+  </material>
 
+  <material name="white_wheel">
+    <color rgba="1.0 1.0 1.0 0.7"/>
+  </material>
 
-    <link name="wheel_left_link">
-        <visual>
-            <origin xyz="0.055 0.0048 0" rpy="-1.57 0 0" />
-            <geometry>
-                <mesh filename="package://puzzlebot_sim3/meshes/MCR2_wheel.stl"/>
-            </geometry>
-            <material name="yellow">
-                <color rgba="0.8 0.8 0.05 1.0"/>
-            </material>
-        </visual>
-    </link>
-
-    <link name="wheel_right_link">
-        <visual>
-            <origin xyz="0.055 -0.0048 0" rpy="1.57 0 0" />
-            <geometry>
-                <mesh filename="package://puzzlebot_sim3/meshes/MCR2_wheel.stl"/>
-            </geometry>
-            <material name="yellow">
-                <color rgba="0.8 0.8 0.05 1.0"/>
-            </material>
-        </visual>
-    </link>
-
-    <link name="caster_holder_link">
-        <visual>
-            <origin xyz="0 0 -0.015" rpy="0 0 0"/>
-            <geometry>
-                <mesh filename="package://puzzlebot_sim3/meshes/MCR2_caster_wheel.stl"/>
-            </geometry>
-            <material name="yellow">
-                <color rgba="0.8 0.8 0.05 1.0"/>
-            </material>
-        </visual>
-    </link>
-  
-    <link name="camera_base_link">
-    </link>
+  <material name="gray">
+    <color rgba="0.5 0.5 0.5 1.0"/>
+  </material>
 
 
-    <link name="lidar_base_link">
-    </link>
+  <!-- =========================================================
+       LINKS
+  ========================================================= -->
+
+  <!-- base_footprint -->
+  <link name="base_footprint"/>
+
+  <!-- base_link -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0.0 0.0 -0.01" rpy="0.0 0.0 1.5708"/>
+      <geometry>
+        <mesh filename="package://puzzlebot_urdf_ROS/meshes/Puzzlebot_Jetson_Lidar_Edition_Base.stl"
+              scale="1 1 1"/>
+      </geometry>
+      <material name="white_transparent"/>
+    </visual>
+  </link>
+
+  <!-- wheel_r -->
+  <link name="wheel_r">
+    <visual>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>  
+      <geometry>
+        <mesh filename="package://puzzlebot_urdf_ROS/meshes/Puzzlebot_Wheel.stl" scale="1 1 1"/>
+      </geometry>
+      <material name="white_wheel"/>
+    </visual>
+  </link>
+
+  <!-- wheel_l -->
+  <link name="wheel_l">
+    <visual>
+      <origin xyz="0.0 0.0 0.0" rpy="3.1416 0.0 0.0"/>  
+      <geometry>
+        <mesh filename="package://puzzlebot_urdf_ROS/meshes/Puzzlebot_Wheel.stl" scale="1 1 1"/>
+      </geometry>
+      <material name="white_wheel"/>
+    </visual>
+  </link>
+
+  <!-- caster -->
+  <link name="caster">
+    <visual>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="package://puzzlebot_urdf_ROS/meshes/Puzzlebot_Caster_Wheel.stl"
+              scale="1 1 1"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+  </link>
 
 
-    
+  <!-- =========================================================
+       JOINTS
+  ========================================================= -->
 
-<!--JOINTS-->
+  <!-- base_footprint → base_link  -->
+  <joint name="base_footprint_to_base_link" type="fixed">
+    <parent link="base_footprint"/>
+    <child  link="base_link"/>
+    <origin xyz="0.0 0.0 0.06" rpy="0.0 0.0 0.0"/>
+  </joint>
 
-    <joint name="base_link_joint" type="fixed">
-        <parent link="base_footprint"/>
-        <child link="base_link"/>
-        <origin xyz="0 0 0.05" rpy="0 0 0"/>
-    </joint>
+  <!-- base_link → wheel_r -->
+  <joint name="base_link_to_wheel_r" type="continuous">
+    <parent link="base_link"/>
+    <child  link="wheel_r"/>
+    <origin xyz="0.084 0.053 -0.01" rpy="0.0 -1.5708 0.0"/>  
+    <axis xyz="0 0 1"/>
+  </joint>
 
-
-    <joint name="wheel_right_joint" type="continuous">
-        <parent link="base_link"/> 
-        <child link="wheel_right_link"/> 
-        <origin xyz="0.052 -0.095 -0.0025" rpy="0 0 0"/>
-        <axis xyz="0 1 0"/> 
-    </joint>
-
-    <joint name="wheel_left_joint" type="continuous">
-        <parent link="base_link"/>
-        <child link="wheel_left_link"/>
-        <origin xyz="0.052 0.095 -0.0025" rpy="0 0 0"/>
-        <axis xyz="0 1 0"/>
-    </joint>
-
-    <joint name="caster_holder_joint" type="fixed">
-        <parent link="base_link"/>
-        <child link="caster_holder_link"/>
-        <origin xyz="-0.095 0 -0.0307" rpy="0 0 0"/>
-    </joint>
-
-    <joint name="camera_base_joint" type="fixed">
-        <parent link="base_link"/>
-        <child link="camera_base_link"/>
-        <origin xyz="0.112 0 0.065" rpy="0 0 0"/>
-    </joint>
+  <!-- base_link → wheel_l  -->
+  <joint name="base_link_to_wheel_l" type="continuous">
+    <parent link="base_link"/>
+    <child  link="wheel_l"/>
+    <origin xyz="-0.084 0.053 -0.01" rpy="0.0 -1.5708 0.0"/> 
+    <axis xyz="0 0 1"/>
+  </joint>
 
 
-    <joint name="lidar_base_joint" type="fixed">
-        <parent link="base_link"/>
-        <child link="lidar_base_link"/>
-        <origin xyz="0.05 0 0.110" rpy="0 0 0"/>
-    </joint>
-
+  <!-- base_link → caster   -->
+  <joint name="base_link_to_caster" type="fixed">
+    <parent link="base_link"/>
+    <child  link="caster"/>
+    <origin xyz="0.0 -0.075 -0.055" rpy="0.0 0.0 0.0"/>
+  </joint>
 
 </robot>
