@@ -13,7 +13,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*launch.[pxy][yma]*'))),
-        (os.path.join('share', package_name, 'config'), glob(os.path.join('config', '*.[yma]*'))),
+        (os.path.join('share', package_name, 'config'), glob(os.path.join('config', '*.yaml'))),
         (os.path.join('share', package_name, 'rviz'), glob(os.path.join('rviz', '*.rviz'))),
         (os.path.join('share', package_name, 'meshes'), glob(os.path.join('meshes', '*.stl'))),
         (os.path.join('share', package_name, 'urdf'), glob(os.path.join('urdf', '*.urdf'))),
@@ -28,7 +28,7 @@ setup(
     entry_points={
         'console_scripts': [
             'trayectory_node = puzzlebot_sim3.trayectory_node:main',
-            'point_stabilisation_control = puzzlebot_sim3.point_stabilisation_control:main',
+            'PointStabilisation_node = puzzlebot_sim3.point_stabilisation_control:main',
             'localisation = puzzlebot_sim3.localisation:main',
             'joint_state_pub = puzzlebot_sim3.joint_state_pub:main',
             'puzzlebot_sim = puzzlebot_sim3.puzzlebot_sim:main',

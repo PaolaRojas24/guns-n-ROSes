@@ -15,6 +15,12 @@ from launch.actions import ExecuteProcess
 
 
 def generate_launch_description():
+
+    params = os.path.join(
+        get_package_share_directory('puzzlebot_sim3'),
+        'config',
+        'params.yaml'
+    )
  
     urdf_file_name = 'puzzlebot.urdf'
     urdf_default_path = os.path.join(
@@ -48,14 +54,16 @@ def generate_launch_description():
     trayectory_node = Node(
                         package='puzzlebot_sim3',
                         executable='trayectory_node',
-                        name='trayectory_node',
+                        name='Trajectory_node',
+                        parameters=[params],
                         output='screen',
     )
 
     control_node = Node(
                         package='puzzlebot_sim3',
-                        executable='point_stabilisation_control',
-                        name='control_node',
+                        executable='PointStabilisation_node',
+                        name='PointStabilisation_node',
+                        parameters=[params],
                         output='screen',
     )
 
@@ -117,6 +125,13 @@ def generate_launch_description():
 
     graph_node = ExecuteProcess(
         cmd=['ros2', 'run', 'rqt_graph', 'rqt_graph'],
+        output='screen'
+    )
+
+    reset_odom = ExecuteProcess(
+
+        cmd=['ros2', 'topic', 'pub', '--once', '/reset_odom',
+            'std_msgs/msg/Bool', '{data: true}'],
         output='screen'
     )
 

@@ -1,23 +1,22 @@
-trajectory_node:
+Trajectory_node:
   ros__parameters:
-    area: 1.0   # área de trabajo 1x1 m → límites ±0.5 m
+    area: 1.0
+    coordenadas_x: [0.0,    0.0,   -0.381, -0.235,  0.235,  0.381,  0.0]
+    coordenadas_y: [0.0,    0.4,    0.124, -0.324, -0.324,  0.124,  0.4]
+    velocidad:     [0.1,    0.1,    0.1,    0.1,    0.1,    0.1,    0.1]
 
-    coordenadas_x: [0.476,  0.294, -0.476, -0.476,  0.294]
-    coordenadas_y: [0.155,  0.405,  0.405,  0.155, -0.405]
-    velocidad:     [0.1,    0.1,    0.1,    0.1,    0.1  ]
-
-controller_node:
+PointStabilisation_node:
   ros__parameters:
     kp_lin: 1.0
-    ki_lin: 0.0
-    kd_lin: 0.1
+    ki_lin: 0.1
+    kd_lin: 0.0
 
-    kp_ang: 2.0
-    ki_ang: 0.0
-    kd_ang: 0.05
+    kp_ang: 1.5
+    ki_ang: 0.1
+    kd_ang: 0.0
 
-    dist_tolerance: 0.02
-    ang_tolerance:  0.05
-    max_linear:     0.38
-    max_angular:    1.5
+    dist_tolerance: 0.08
+    ang_tolerance:  0.3
+    max_linear:     0.15
+    max_angular:    0.8
     control_rate:   20.0
