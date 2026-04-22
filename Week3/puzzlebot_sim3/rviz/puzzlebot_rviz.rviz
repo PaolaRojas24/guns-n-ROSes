@@ -130,18 +130,18 @@ Visualization Manager:
           Value: true
         Value: false
       Enabled: true
-      Keep: 10
+      Keep: 5
       Name: Odometry
       Position Tolerance: 0.10000000149011612
       Shape:
         Alpha: 0.5
         Axes Length: 1
         Axes Radius: 0.10000000149011612
-        Color: 255; 25; 0
+        Color: 255; 0; 255
         Head Length: 0.05000000074505806
-        Head Radius: 0.07999999821186066
+        Head Radius: 0.03
         Shaft Length: 0.30000001192092896
-        Shaft Radius: 0.05000000074505806
+        Shaft Radius: 0.02
         Value: Arrow
       Topic:
         Depth: 5
@@ -150,6 +150,19 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /odom
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: MarkerArray
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /trajectory_markers
       Value: true
   Enabled: true
   Global Options:
@@ -197,25 +210,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 4.4148
+      Distance: 5.27397
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -3.23797
-        Y: -0.00227034
-        Z: -0.818225
+        X: -3.24306
+        Y:  0.434108
+        Z: -1.09052
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.255624
+      Pitch: 0.400624
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 6.17777
+      Yaw: 6.12277
     Saved: ~
 Window Geometry:
   Displays:
