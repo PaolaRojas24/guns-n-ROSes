@@ -161,6 +161,7 @@ def generate_launch_description():
         plot_node_2,
         tree_node,
         rviz_node,
-        graph_node])
+        graph_node
+        ])
 
     return l_d
