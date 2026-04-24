@@ -31,17 +31,8 @@ def generate_launch_description():
     with open(urdf_default_path, 'r') as infp:
         robot_desc = infp.read()
 
-    static_transform_node = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        arguments = [
-            '--x', '2', '--y', '1', '--z', '0.0',
-            '--yaw', '0.0', '--pitch', '0', '--roll', '0.0',
-            '--frame-id', 'map', '--child-frame-id', 'odom'
-        ]
-    )
 
-    static_transform_node_2 = Node(
+    static_transform_node = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         arguments = [
@@ -50,21 +41,43 @@ def generate_launch_description():
             '--frame-id', 'world', '--child-frame-id', 'map'
         ]
     )
+
+    static_transform_node_1 = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments = [
+            '--x', '2', '--y', '1', '--z', '0.0',
+            '--yaw', '0.0', '--pitch', '0', '--roll', '0.0',
+            '--frame-id', 'map', '--child-frame-id', 'robot1/odom'
+        ]
+    )
+
+    static_transform_node_2 = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments = [
+            '--x', '2', '--y', '0', '--z', '0.0',
+            '--yaw', '0.0', '--pitch', '0', '--roll', '0.0',
+            '--frame-id', 'map', '--child-frame-id', 'robot2/odom'
+        ]
+    )
     
     trayectory_node = Node(
                         package='multiple_sim',
                         executable='trayectory_node',
                         name='Trajectory_node',
-                        parameters=[params],
+                        parameters=[params, {'robot_name': 'robot1'}],
                         output='screen',
+                        namespace='robot1',
     )
 
     control_node = Node(
                         package='multiple_sim',
                         executable='PointStabilisation_node',
-                        name='PointStabilisation_node',
+                        name='control_node',
                         parameters=[params],
                         output='screen',
+                        namespace='robot1',
     )
 
     localisation_node = Node(
@@ -72,6 +85,8 @@ def generate_launch_description():
                         executable='localisation',
                         name='localisation_node',
                         output='screen',
+                        namespace='robot1',
+                        parameters=[{'robot_name': 'robot1'}],
     )
 
     joint_state_publisher_node = Node(
@@ -79,6 +94,7 @@ def generate_launch_description():
                         executable='joint_state_pub',
                         name='joint_state_publisher_node',
                         output='screen',
+                        namespace='robot1',
     )
 
     puzzlebot_sim = Node(
@@ -86,6 +102,7 @@ def generate_launch_description():
                         executable='puzzlebot_sim',
                         name='puzzlebot_sim',
                         output='screen',
+                        namespace='robot1',
     )
 
     robot_state_pub_node = Node(
@@ -93,27 +110,70 @@ def generate_launch_description():
                             executable='robot_state_publisher',
                             name='robot_state_publisher',
                             output='screen',
-                            parameters=[{'robot_description': robot_desc}],
-                            )
+                            parameters=[{'robot_description': robot_desc, 'frame_prefix': 'robot1/'}],
+                            namespace='robot1',
+    )
     
     coords_transform_node = Node(
                         package='multiple_sim',
                         executable='coords_transform',
                         name='coords_transform_node',
                         output='screen',
+                        namespace='robot1',
+                        parameters=[{'robot_name': 'robot1'}],
+    )
+
+    control_node_2 = Node(
+                        package='multiple_sim',
+                        executable='PointStabilisation_node',
+                        name='control_node_2',
+                        parameters=[params],
+                        output='screen',
+                        namespace='robot2',
+    )
+
+    localisation_node_2 = Node(
+                        package='multiple_sim',
+                        executable='localisation',
+                        name='localisation_node_2',
+                        output='screen',
+                        namespace='robot2',
+                        parameters=[{'robot_name': 'robot2'}],
+    )
+
+    joint_state_publisher_node_2 = Node(
+                        package='multiple_sim',
+                        executable='joint_state_pub',
+                        name='joint_state_publisher_node_2',
+                        output='screen',
+                        namespace='robot2',
+    )
+
+    puzzlebot_sim_2 = Node(
+                        package='multiple_sim',
+                        executable='puzzlebot_sim',
+                        name='puzzlebot_sim_2',
+                        output='screen',
+                        namespace='robot2',
+    )
+
+    robot_state_pub_node_2 = Node(
+                            package='robot_state_publisher',
+                            executable='robot_state_publisher',
+                            name='robot_state_publisher_2',
+                            output='screen',
+                            parameters=[{'robot_description': robot_desc, 'frame_prefix': 'robot2/'}],
+                            namespace='robot2',
     )
     
-    plot_node = Node(name='rqt_plot',
-                    package='rqt_plot',
-                    executable='rqt_plot',
-                    arguments=['/cmd_vel/linear/x', '/cmd_vel/linear/y'],
-                    )
-    
-    plot_node_2 = Node(name='rqt_plot',
-                    package='rqt_plot',
-                    executable='rqt_plot',
-                    arguments=['/pose/position/x', '/pose/position/y'],
-                    )
+    coords_transform_node_2 = Node(
+                        package='multiple_sim',
+                        executable='coords_transform',
+                        name='coords_transform_node_2',
+                        output='screen',
+                        namespace='robot2',
+                        parameters=[{'robot_name': 'robot2'}],
+    )
     
     tree_node = Node(
         package='rqt_gui',
@@ -129,10 +189,9 @@ def generate_launch_description():
     )
 
     reset_odom = ExecuteProcess(
-
         cmd=['ros2', 'topic', 'pub', '--once', '/reset_odom',
             'std_msgs/msg/Bool', '{data: true}'],
-        output='screen'
+        output='screen',
     )
 
     rviz_config = os.path.join(
@@ -149,6 +208,7 @@ def generate_launch_description():
 
     l_d = LaunchDescription([
         static_transform_node,
+        static_transform_node_1,
         static_transform_node_2,
         trayectory_node,
         control_node,
@@ -157,9 +217,14 @@ def generate_launch_description():
         puzzlebot_sim,
         robot_state_pub_node,
         coords_transform_node,
-        plot_node,
-        plot_node_2,
+        control_node_2,
+        localisation_node_2,
+        joint_state_publisher_node_2,
+        puzzlebot_sim_2,
+        robot_state_pub_node_2,
+        coords_transform_node_2,
         tree_node,
+        reset_odom,
         rviz_node,
         graph_node
         ])

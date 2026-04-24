@@ -29,12 +29,12 @@ class KinematicModelNode(Node):
         self.prev_time = None
 
         # ── Publishers ────────────────────────────────────────────────────────
-        self.wr_pub   = self.create_publisher(Float32, '/wr',   10)
-        self.wl_pub   = self.create_publisher(Float32, '/wl',   10)
-        self.pose_pub = self.create_publisher(Pose,    '/pose', 10)
+        self.wr_pub   = self.create_publisher(Float32, 'wr',   10)
+        self.wl_pub   = self.create_publisher(Float32, 'wl',   10)
+        self.pose_pub = self.create_publisher(Pose,    'pose', 10)
 
         # ── Subscriber ────────────────────────────────────────────────────────
-        self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_cb, 10)
+        self.create_subscription(Twist, 'cmd_vel', self.cmd_vel_cb, 10)
 
         # ── Timer (integration loop at 50 Hz) ─────────────────────────────────
         self.create_timer(0.02, self.update)

@@ -11,6 +11,9 @@ class TrajectoryNode(Node):
     def __init__(self):
         super().__init__('Trajectory_node')
 
+        self.declare_parameter('robot_name', 'robot1')
+        self.robot_name = self.get_parameter('robot_name').value
+
         #Parámetros
         self.declare_parameter('coordenadas_x', rclpy.parameter.Parameter.Type.DOUBLE_ARRAY) 
         self.declare_parameter('coordenadas_y', rclpy.parameter.Parameter.Type.DOUBLE_ARRAY)         
@@ -144,7 +147,7 @@ class TrajectoryNode(Node):
         for i, wp in enumerate(self.waypoints):
             # Esfera en cada waypoint
             m = Marker()
-            m.header.frame_id = 'odom'
+            m.header.frame_id = f'{self.robot_name}/odom'
             m.header.stamp = self.get_clock().now().to_msg()
             m.ns = 'waypoints'
             m.id = i
@@ -165,7 +168,7 @@ class TrajectoryNode(Node):
 
             # Número del punto como texto
             t = Marker()
-            t.header.frame_id = 'odom'
+            t.header.frame_id = f'{self.robot_name}/odom'
             t.header.stamp = self.get_clock().now().to_msg()
             t.ns = 'labels'
             t.id = i + 100
@@ -185,7 +188,7 @@ class TrajectoryNode(Node):
 
         # Líneas conectando los puntos
         line = Marker()
-        line.header.frame_id = 'odom'
+        line.header.frame_id = f'{self.robot_name}/odom'
         line.header.stamp = self.get_clock().now().to_msg()
         line.ns = 'path'
         line.id = 200

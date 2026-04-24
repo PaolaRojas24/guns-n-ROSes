@@ -10,11 +10,14 @@ class CoordsTransformNode(Node):
     def __init__(self):
         super().__init__('coords_transform_node')
 
+        self.declare_parameter('robot_name', 'robot')
+        self.robot_name = self.get_parameter('robot_name').value
+
         # ── TF broadcaster ────────────────────────────────────────────────────
         self.tf_broadcaster = TransformBroadcaster(self)
 
         # ── Subscriber ────────────────────────────────────────────────────────
-        self.create_subscription(Odometry, '/odom', self.odom_cb, 10)
+        self.create_subscription(Odometry, 'odom', self.odom_cb, 10)
 
         self.get_logger().info('Coords transform node started')
 
@@ -25,8 +28,8 @@ class CoordsTransformNode(Node):
 
         # ── Header ────────────────────────────────────────────────────────────
         t.header.stamp    = msg.header.stamp
-        t.header.frame_id = 'odom'
-        t.child_frame_id  = 'base_footprint'
+        t.header.frame_id = f'{self.robot_name}/odom'
+        t.child_frame_id  = f'{self.robot_name}/base_footprint'
 
         # ── Position ──────────────────────────────────────────────────────────
         t.transform.translation.x = msg.pose.pose.position.x

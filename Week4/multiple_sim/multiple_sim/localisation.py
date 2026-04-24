@@ -19,6 +19,9 @@ class DeadReckoning(Node):
         self.r = self.get_parameter('wheel_radius').value
         self.L = self.get_parameter('wheel_base').value
 
+        self.declare_parameter('robot_name', 'robot')
+        self.robot_name = self.get_parameter('robot_name').value
+
         # ── State ─────────────────────────────────────────────────────────────
         self.x   = 0.0
         self.y   = 0.0
@@ -30,11 +33,11 @@ class DeadReckoning(Node):
         self.prev_time = None
 
         # ── Publishers ────────────────────────────────────────────────────────
-        self.odom_pub = self.create_publisher(Odometry, '/odom', 10)
+        self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
 
         # ── Subscribers ───────────────────────────────────────────────────────
-        self.create_subscription(Float32, '/wr', self.wr_cb, 10)
-        self.create_subscription(Float32, '/wl', self.wl_cb, 10)
+        self.create_subscription(Float32, 'wr', self.wr_cb, 10)
+        self.create_subscription(Float32, 'wl', self.wl_cb, 10)
 
         # ── Timer (integration loop at 50 Hz) ─────────────────────────────────
         self.create_timer(0.02, self.update)
@@ -84,8 +87,8 @@ class DeadReckoning(Node):
         # ── Publish Odometry message ──────────────────────────────────────────
         odom = Odometry()
         odom.header.stamp    = now.to_msg()
-        odom.header.frame_id = 'odom'
-        odom.child_frame_id  = 'base_footprint'
+        odom.header.frame_id = f'{self.robot_name}/odom'
+        odom.child_frame_id  = f'{self.robot_name}/base_footprint'
 
         # Pose
         odom.pose.pose.position.x    = self.x

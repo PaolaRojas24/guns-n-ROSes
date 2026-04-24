@@ -23,10 +23,10 @@ class DronePublisher(Node):
         self.prev_time = None
 
         # ── Publisher ─────────────────────────────────────────────────────────
-        self.joint_pub = self.create_publisher(JointState, '/joint_states', 10)
+        self.joint_pub = self.create_publisher(JointState, 'joint_states', 10)
 
         # ── Subscriber ────────────────────────────────────────────────────────
-        self.create_subscription(Odometry, '/odom', self.odom_cb, 10)
+        self.create_subscription(Odometry, 'odom', self.odom_cb, 10)
 
         self.get_logger().info('Joint state publisher started')
 
