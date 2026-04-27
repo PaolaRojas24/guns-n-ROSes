@@ -32,6 +32,7 @@ setup(
             'localisation = multiple_sim.localisation:main',
             'joint_state_pub = multiple_sim.joint_state_pub:main',
             'puzzlebot_sim = multiple_sim.puzzlebot_sim:main',
+            'pursuit_node = multiple_sim.pursuit_node:main',
             'coords_transform = multiple_sim.coords_transform:main',
         ],
     },

@@ -1,5 +1,5 @@
 robot1:
-  trayectory_node:
+  Trajectory_node:
     ros__parameters:
       area: 1.0
       coordenadas_x: [0.0,    0.0,   -0.381, -0.235,  0.235,  0.381,  0.0]

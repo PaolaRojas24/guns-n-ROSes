@@ -1,4 +1,3 @@
-#IMPORTS REQUIRED TO SET THE PACKAGE ADDRESS (DIRECTORIES)
 import os
 from ament_index_python.packages import get_package_share_directory
 
@@ -62,6 +61,7 @@ def generate_launch_description():
         ]
     )
     
+    # ── Robot 1 ────────────────────────────────────────────────────────────
     trayectory_node = Node(
                         package='multiple_sim',
                         executable='trayectory_node',
@@ -121,6 +121,16 @@ def generate_launch_description():
                         output='screen',
                         namespace='robot1',
                         parameters=[{'robot_name': 'robot1'}],
+    )
+
+    # ── Robot 2 ────────────────────────────────────────────────────────────
+
+    pursuit_node = Node(
+                        package='multiple_sim',
+                        executable='pursuit_node',
+                        name='pursuit_node',
+                        output='screen',
+                        namespace='robot2',
     )
 
     control_node_2 = Node(
@@ -210,6 +220,7 @@ def generate_launch_description():
         static_transform_node,
         static_transform_node_1,
         static_transform_node_2,
+        # Robot 1
         trayectory_node,
         control_node,
         localisation_node,
@@ -217,16 +228,19 @@ def generate_launch_description():
         puzzlebot_sim,
         robot_state_pub_node,
         coords_transform_node,
+        # Robot 2
+        pursuit_node,           # ← NEW: replaces trayectory_node for robot2
         control_node_2,
         localisation_node_2,
         joint_state_publisher_node_2,
         puzzlebot_sim_2,
         robot_state_pub_node_2,
         coords_transform_node_2,
+        # Tools
         tree_node,
         reset_odom,
         rviz_node,
-        graph_node
+        graph_node,
         ])
 
     return l_d

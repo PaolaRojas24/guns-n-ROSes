@@ -84,7 +84,7 @@ class KinematicModelNode(Node):
 
         # ── Quaternion via transforms3d ───────────────────────────────────────
         # axangle2quat returns (w, x, y, z) — reorder for ROS (x, y, z, w)
-        q = transforms3d.euler.euler2quat(0.0, 0.0, self.yaw )#+ math.pi/2.0)
+        q = transforms3d.euler.euler2quat(0.0, 0.0, self.yaw ) + math.pi
 
         # ── Publish Pose ──────────────────────────────────────────────────────
         pose = Pose()
