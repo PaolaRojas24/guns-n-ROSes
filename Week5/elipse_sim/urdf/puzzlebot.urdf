@@ -1,0 +1,117 @@
+<?xml version="1.0"?>
+<robot name="puzzlebot">
+
+  <!-- =========================================================
+      URDF - Puzzlebot
+        guns-n-ROSes
+      Only Material and Links
+      May have problems with the way of defining TFs that 
+      lead to weird conversions on the odometry.
+  ========================================================= -->
+
+  <!-- =========================================================
+       MATERIALS
+  ========================================================= -->
+  <material name="white_transparent">
+    <color rgba="1.0 1.0 1.0 0.5"/>
+  </material>
+
+  <material name="white_wheel">
+    <color rgba="1.0 1.0 1.0 0.7"/>
+  </material>
+
+  <material name="gray">
+    <color rgba="0.5 0.5 0.5 1.0"/>
+  </material>
+
+
+  <!-- =========================================================
+       LINKS
+  ========================================================= -->
+
+  <!-- base_footprint -->
+  <link name="base_footprint"/>
+
+  <!-- base_link -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0.0 0.0 -0.01" rpy="0.0 0.0 1.5708"/>
+      <geometry>
+        <mesh filename="package://puzzlebot_urdf_ROS/meshes/Puzzlebot_Jetson_Lidar_Edition_Base.stl"
+              scale="1 1 1"/>
+      </geometry>
+      <material name="white_transparent"/>
+    </visual>
+  </link>
+
+  <!-- wheel_r -->
+  <link name="wheel_r">
+    <visual>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>  
+      <geometry>
+        <mesh filename="package://puzzlebot_urdf_ROS/meshes/Puzzlebot_Wheel.stl" scale="1 1 1"/>
+      </geometry>
+      <material name="white_wheel"/>
+    </visual>
+  </link>
+
+  <!-- wheel_l -->
+  <link name="wheel_l">
+    <visual>
+      <origin xyz="0.0 0.0 0.0" rpy="3.1416 0.0 0.0"/>  
+      <geometry>
+        <mesh filename="package://puzzlebot_urdf_ROS/meshes/Puzzlebot_Wheel.stl" scale="1 1 1"/>
+      </geometry>
+      <material name="white_wheel"/>
+    </visual>
+  </link>
+
+  <!-- caster -->
+  <link name="caster">
+    <visual>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="package://puzzlebot_urdf_ROS/meshes/Puzzlebot_Caster_Wheel.stl"
+              scale="1 1 1"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+  </link>
+
+
+  <!-- =========================================================
+       JOINTS
+  ========================================================= -->
+
+  <!-- base_footprint → base_link  -->
+  <joint name="base_footprint_to_base_link" type="fixed">
+    <parent link="base_footprint"/>
+    <child  link="base_link"/>
+    <origin xyz="0.0 0.0 0.06" rpy="0.0 0.0 -1.5708"/>
+  </joint>
+
+  <!-- base_link → wheel_r -->
+  <joint name="base_link_to_wheel_r" type="continuous">
+    <parent link="base_link"/>
+    <child  link="wheel_r"/>
+    <origin xyz="0.084 0.054 -0.01" rpy="0.0 -1.5708 0.0"/>  
+    <axis xyz="0 0 1"/>
+  </joint>
+
+  <!-- base_link → wheel_l  -->
+  <joint name="base_link_to_wheel_l" type="continuous">
+    <parent link="base_link"/>
+    <child  link="wheel_l"/>
+    <origin xyz="-0.084 0.054 -0.01" rpy="0.0 -1.5708 0.0"/> 
+    <axis xyz="0 0 1"/>
+  </joint>
+
+
+  <!-- base_link → caster   -->
+  <joint name="base_link_to_caster" type="fixed">
+    <parent link="base_link"/>
+    <child  link="caster"/>
+    <origin xyz="0.0 -0.075 -0.055" rpy="0.0 0.0 0.0"/>
+  </joint>
+
+</robot>
