@@ -21,3 +21,10 @@ control_node:
     max_linear:     0.15
     max_angular:    0.8
     control_rate:   20.0
+
+localisation_node:
+  ros__parameters:
+    wheel_radius: 0.05
+    wheel_base:   0.108
+    kr: 0.01
+    kl: 0.01

@@ -16,8 +16,13 @@ class DeadReckoning(Node):
         self.declare_parameter('wheel_radius', 0.05)   # m
         self.declare_parameter('wheel_base',   0.108)  # m
 
+        self.declare_parameter('kr', 0.01)  # Ruido rueda derecha
+        self.declare_parameter('kl', 0.01)  # Ruido rueda izquierda
+
         self.r = self.get_parameter('wheel_radius').value
         self.L = self.get_parameter('wheel_base').value
+        self.kr = self.get_parameter('kr').value
+        self.kl = self.get_parameter('kl').value
 
         # ── State ─────────────────────────────────────────────────────────────
         self.x   = 0.0
@@ -26,6 +31,13 @@ class DeadReckoning(Node):
 
         self.wr = 0.0   # right wheel rad/s
         self.wl = 0.0   # left  wheel rad/s
+
+        # Covarianza 3x3 inicial 
+        # Σ = [[sxx, sxy, sxt],
+        #      [syx, syy, stt],
+        #      [stx, sty, stt])
+
+        self.sigma = np.zeros((3,3))
 
         self.prev_time = None
 
@@ -64,7 +76,7 @@ class DeadReckoning(Node):
         if dt <= 0.0:
             return
 
-        # ── Differential-drive kinematics (your model) ────────────────────────
+        # ── Differential-drive kinematics  ────────────────────────
         v_robot = self.r * (self.wr + self.wl) / 2.0
         w_robot = self.r * (self.wl - self.wr) / self.L
 
@@ -76,10 +88,52 @@ class DeadReckoning(Node):
         # Normalize yaw to [-π, π]
         self.yaw = math.atan2(math.sin(self.yaw), math.cos(self.yaw))
 
+        # ──── Jacobiano H_k (3x3) ────────────────────────────────────────────
+        H = np.array([
+            [1.0, 0.0, -dt * v_robot * math.sin(self.yaw)],
+            [0.0, 1.0,  dt * v_robot * math.cos(self.yaw)],
+            [0.0, 0.0,  1.0]
+        ])
+
+        # ──── Matriz de ruido (2x2) ──────────────────────────────────────────
+        sigma_delta = np.array([
+            [self.kr * abs(self.wr), 0.0],
+            [0.0, self.kl * abs(self.wl)]
+        ])
+
+        # ──── Jacobinao de velocidades (3x2) ───────────────────────────────────
+        c = math.cos(self.yaw)
+        s = math.sin(self.yaw)
+
+        grad_w = np.array([
+            [ (self.r/2.0)*dt*c, (self.r/2.0)*dt*c],
+            [ (self.r/2.0)*dt*s, (self.r/2.0)*dt*s],
+            [ self.r*dt/self.L, -self.r*dt/self.L]
+        ])
+
+        # ────── Q_k = ∇ω · Σ_Δ · ∇ω^T ────────────────────────────────
+        Q = grad_w @ sigma_delta @ grad_w.T
+
+        # ── Σ_k = H · Σ_{k-1} · H^T + Q ───────────────────────────────
+        self.sigma = H @ self.sigma @ H.T + Q
+
         # ── Quaternion (your URDF correction) ────────────────────────────────
         yaw_corrected = self.yaw + math.pi / 2.0
         qz = math.sin(yaw_corrected / 2.0)
         qw = math.cos(yaw_corrected / 2.0)
+
+        # ─── Mapero 3x3  a 6x6 ───────────────────────────────────────
+        cov36 = [0.0] * 36
+
+        cov36[0] = self.sigma[0,0] # xx
+        cov36[1] = self.sigma[0,1] # xy
+        cov36[5] = self.sigma[0,2] # xt
+        cov36[6] = self.sigma[1,0] # yx
+        cov36[7] = self.sigma[1,1] # yy
+        cov36[11] = self.sigma[1,2] # yt
+        cov36[30] = self.sigma[2,0] # tx
+        cov36[31] = self.sigma[2,1] # ty
+        cov36[35] = self.sigma[2,2] # tt
 
         # ── Publish Odometry message ──────────────────────────────────────────
         odom = Odometry()
@@ -96,12 +150,10 @@ class DeadReckoning(Node):
         odom.pose.pose.orientation.z = qz
         odom.pose.pose.orientation.w = qw
 
+        odom.pose.covariance = cov36
+
         # Twist
         odom.twist.twist.linear.x  = v_robot
-        odom.twist.twist.linear.y  = 0.0
-        odom.twist.twist.linear.z  = 0.0
-        odom.twist.twist.angular.x = 0.0
-        odom.twist.twist.angular.y = 0.0
         odom.twist.twist.angular.z = w_robot
 
         self.odom_pub.publish(odom)
