@@ -33,6 +33,7 @@ setup(
             'joint_state_pub = elipse_sim.joint_state_pub:main',
             'puzzlebot_sim = elipse_sim.puzzlebot_sim:main',
             'coords_transform = elipse_sim.coords_transform:main',
+            'data_logger = elipse_sim.data_logger:main',
         ],
     },
 )

@@ -79,6 +79,13 @@ class PointStabilisationNode(Node):
     #Callbacks
 
     def setpoint_cb(self, msg: Point):
+        same_point = (
+            self.goal_x is not None and
+            abs(msg.x - self.goal_x) < 1e-4 and
+            abs(msg.y - self.goal_y) < 1e-4
+        )
+        if same_point:
+            return  # retry del mismo punto, ignorar
 
         self.goal_x = msg.x
         self.goal_y = msg.y
