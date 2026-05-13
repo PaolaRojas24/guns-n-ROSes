@@ -2,12 +2,12 @@
 Trajectory_node:
   ros__parameters:
     area: 4.0
-    #coordenadas_x: [0.0,    1.5,    1.5,    0.0,    0.0]
-    #coordenadas_y: [0.0,    0.0,    1.5,    1.5,    0.0]
-    #velocidad:     [0.35,    0.35,    0.35,    0.35,    0.35]
-    coordenadas_x: [0.0,  1.0,  1.0]
-    coordenadas_y: [0.0,  0.0,  1.0]
-    velocidad:     [0.2,  0.2,  0.2]
+    coordenadas_x: [0.0,    1.5,    1.5,    0.0,    0.0]
+    coordenadas_y: [0.0,    0.0,    1.5,    1.5,    0.0]
+    velocidad:     [0.35,    0.35,    0.35,    0.35,    0.35]
+    #coordenadas_x: [0.0,  1.0,  1.0]
+    #coordenadas_y: [0.0,  0.0,  1.0]
+    #velocidad:     [0.2,  0.2,  0.2]
 
 control_node:
   ros__parameters:
