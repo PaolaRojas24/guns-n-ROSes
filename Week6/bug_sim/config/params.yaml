@@ -1,15 +1,3 @@
-# ─────────────────────────────────────────────────────────────────────────────
-#  Parámetros del paquete bug_sim
-# ─────────────────────────────────────────────────────────────────────────────
-
-# ── Nodo de trayectoria (solo para pruebas sin Bug0) ─────────────────────────
-Trajectory_node:
-  ros__parameters:
-    area: 4.0
-    coordenadas_x: [0.0,  1.5,  1.5,  0.0,  0.0]
-    coordenadas_y: [0.0,  0.0,  1.5,  1.5,  0.0]
-    velocidad:     [0.35, 0.35, 0.35, 0.35, 0.35]
-
 # ── Controlador PID de posición (point_stabilisation_control) ────────────────
 control_node:
   ros__parameters:
@@ -36,10 +24,6 @@ localisation_node:
     kl:           0.014   # ruido rueda izquierda
 
 # ── Bug 0 ────────────────────────────────────────────────────────────────────
-# goal_x / goal_y se sobreescriben desde el launch según el mundo cargado.
-#
-# GO_TO_GOAL  : el PID maneja cmd_vel  →  solo ajustar tolerancias en control_node
-# WALL_FOLLOW : cmd_vel directo        →  ajustar wall_* y kp_wall aquí
 bug0_node:
   ros__parameters:
     # Goal — sobreescrito por el launch según el mundo

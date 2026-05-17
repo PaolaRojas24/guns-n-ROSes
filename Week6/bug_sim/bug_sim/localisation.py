@@ -4,7 +4,6 @@ from nav_msgs.msg import Odometry
 from std_msgs.msg import Float32
 import numpy as np
 import transforms3d
-import signal
 import math
 
 

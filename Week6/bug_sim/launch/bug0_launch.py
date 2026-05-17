@@ -10,6 +10,7 @@ from launch.actions import (
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch.actions import ExecuteProcess
 
 
 WORLD_GOALS = {
@@ -65,8 +66,6 @@ def launch_setup(context, *args, **kwargs):
     )
 
     # ── localisation_node ─────────────────────────────────────────────────────
-    # Sigue corriendo para calcular covarianzas con dead reckoning.
-    # Sus encoders vienen de /VelocityEncL|R de Gazebo.
     localisation_node = Node(
         package='bug_sim',
         executable='localisation',
@@ -107,9 +106,6 @@ def launch_setup(context, *args, **kwargs):
     )
 
     # ── control_node (PID) ────────────────────────────────────────────────────
-    # Recibe setpoint de bug0_node y publica cmd_vel durante GO_TO_GOAL.
-    # Se remapea odom a /ground_truth igual que bug0_node para usar la misma
-    # fuente de pose.
     control_node = Node(
         package='bug_sim',
         executable='PointStabilisation_node',
@@ -122,8 +118,6 @@ def launch_setup(context, *args, **kwargs):
     )
 
     # ── bug0_node ─────────────────────────────────────────────────────────────
-    # En GO_TO_GOAL publica en 'setpoint' para que control_node (PID) maneje
-    # cmd_vel. En WALL_FOLLOW toma el control directo de cmd_vel.
     bug0_node = Node(
         package='bug_sim',
         executable='bug0_node',
@@ -138,9 +132,22 @@ def launch_setup(context, *args, **kwargs):
         ],
         remappings=[
             ('odom',     '/ground_truth'),
-            ('setpoint', 'setpoint'),       # se conecta al control_node
+            ('setpoint', 'setpoint'), 
         ],
         output='screen',
+    )
+
+    tree_node = Node(
+        package='rqt_gui',
+        executable='rqt_gui',
+        name='rqt_tf_tree',
+        output='screen',
+        arguments=['--standalone', 'rqt_tf_tree']
+    )
+
+    graph_node = ExecuteProcess(
+        cmd=['ros2', 'run', 'rqt_graph', 'rqt_graph'],
+        output='screen'
     )
 
     return [
@@ -152,6 +159,8 @@ def launch_setup(context, *args, **kwargs):
         coords_transform_node,
         control_node,
         bug0_node,
+        graph_node,
+        tree_node,
     ]
 
 

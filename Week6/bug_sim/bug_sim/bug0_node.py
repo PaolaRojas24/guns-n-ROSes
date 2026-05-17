@@ -1,5 +1,4 @@
 import math
-import signal
 
 import numpy as np
 import rclpy
@@ -8,7 +7,6 @@ from geometry_msgs.msg import Point, Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
-from visualization_msgs.msg import Marker
 
 
 GO_TO_GOAL   = 'GO_TO_GOAL'
@@ -51,10 +49,8 @@ class Bug0Node(Node):
         self._pid_goal_sent = False
 
         # ── Publishers ────────────────────────────────────────────────────────
-        self.pub_cmd      = self.create_publisher(Twist,  '/cmd_vel',          10)
-        self.pub_setpoint = self.create_publisher(Point,  'setpoint',          10)
-        self.pub_goal_mk  = self.create_publisher(Marker, '/bug0/goal_marker', 10)
-        self.pub_pose_mk  = self.create_publisher(Marker, '/bug0/robot_pose',  10)
+        self.pub_cmd      = self.create_publisher(Twist, '/cmd_vel',  10)
+        self.pub_setpoint = self.create_publisher(Point, 'setpoint',  10)
 
         # ── Subscribers ───────────────────────────────────────────────────────
         self.create_subscription(Odometry,  'odom',  self.odom_cb,  10)
@@ -63,8 +59,6 @@ class Bug0Node(Node):
         # ── Timers ────────────────────────────────────────────────────────────
         self.create_timer(0.05, self.control_loop)  # 20 Hz
         self.create_timer(1.0,  self.debug_log)     #  1 Hz
-
-        signal.signal(signal.SIGINT, self._stop_handler)
 
         self.get_logger().info(
             f'Bug0Node listo. Goal: ({self.goal_x:.2f}, {self.goal_y:.2f})  '
@@ -237,9 +231,6 @@ class Bug0Node(Node):
         )
 
     # ──────────────────────────────────────────────────────────────────────────
-    def _stop_handler(self, signum, frame):
-        self._cancel_pid()
-        raise SystemExit
 
 
 def main(args=None):
@@ -247,7 +238,7 @@ def main(args=None):
     node = Bug0Node()
     try:
         rclpy.spin(node)
-    except SystemExit:
+    except KeyboardInterrupt:
         pass
     finally:
         node._cancel_pid()

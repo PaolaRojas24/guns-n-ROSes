@@ -51,8 +51,6 @@ class PointStabilisationNode(Node):
         period = 1.0 / self.get_parameter('control_rate').value
         self.create_timer(period, self.control_loop)
 
-        self._reset_pid()
-
         self.get_logger().info('Nodo listo.')
 
     def _load_params(self):
@@ -94,16 +92,11 @@ class PointStabilisationNode(Node):
         self.get_logger().info(f'Nuevo setpoint: ({msg.x:.3f}, {msg.y:.3f})')
 
     def odom_cb(self, msg: Odometry):
-
         self.x = msg.pose.pose.position.x
         self.y = msg.pose.pose.position.y
 
         q = msg.pose.pose.orientation
-
-        #(w, x, y, z)
-        _, _, self.yaw= transforms3d.euler.quat2euler([q.w, q.x, q.y, q.z], axes='sxyz')
-
-        self.get_logger().info(f'yaw={math.degrees(self.yaw):.1f}°  x={self.x:.3f}  y={self.y:.3f}')
+        _, _, self.yaw = transforms3d.euler.quat2euler([q.w, q.x, q.y, q.z], axes='sxyz')
 
 
     #Loop de control PPID
@@ -122,19 +115,14 @@ class PointStabilisationNode(Node):
             self._stop_robot()
             return
 
-        #Angulo deseado, normalizado a [-π, π]
-        desired_yaw = math.atan2(dy, dx) #+ math.pi
+        # Ángulo deseado, normalizado a [-π, π]
+        desired_yaw = math.atan2(dy, dx)
         err_ang = math.atan2(
             math.sin(desired_yaw - self.yaw),
             math.cos(desired_yaw - self.yaw)
             )
-        
+
         self.get_logger().info(f'err_lin={err_lin:.3f}  err_ang={math.degrees(err_ang):.1f}°  desired={math.degrees(desired_yaw):.1f}°')
-        
-        # Verifica si llego
-        if err_lin < self.dist_tol and abs(err_ang) < self.ang_tol:
-            self._stop_robot()
-            return
         
         # PID lineal 
         self.int_lin += err_lin * dt
