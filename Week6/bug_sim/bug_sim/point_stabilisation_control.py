@@ -123,7 +123,7 @@ class PointStabilisationNode(Node):
             return
 
         #Angulo deseado, normalizado a [-π, π]
-        desired_yaw = math.atan2(dy, dx) + math.pi
+        desired_yaw = math.atan2(dy, dx) #+ math.pi
         err_ang = math.atan2(
             math.sin(desired_yaw - self.yaw),
             math.cos(desired_yaw - self.yaw)

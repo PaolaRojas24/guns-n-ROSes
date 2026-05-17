@@ -106,9 +106,24 @@ def launch_setup(context, *args, **kwargs):
         output='screen',
     )
 
+    # ── control_node (PID) ────────────────────────────────────────────────────
+    # Recibe setpoint de bug0_node y publica cmd_vel durante GO_TO_GOAL.
+    # Se remapea odom a /ground_truth igual que bug0_node para usar la misma
+    # fuente de pose.
+    control_node = Node(
+        package='bug_sim',
+        executable='PointStabilisation_node',
+        name='control_node',
+        parameters=[params_file, {'use_sim_time': True}],
+        remappings=[
+            ('odom', '/ground_truth'),
+        ],
+        output='screen',
+    )
+
     # ── bug0_node ─────────────────────────────────────────────────────────────
-    # Controla cmd_vel directamente (sin PID intermedio).
-    # Lee /ground_truth → coordenadas del mundo, iguales a los goal_markers.
+    # En GO_TO_GOAL publica en 'setpoint' para que control_node (PID) maneje
+    # cmd_vel. En WALL_FOLLOW toma el control directo de cmd_vel.
     bug0_node = Node(
         package='bug_sim',
         executable='bug0_node',
@@ -122,7 +137,8 @@ def launch_setup(context, *args, **kwargs):
             }
         ],
         remappings=[
-            ('odom', '/ground_truth'),
+            ('odom',     '/ground_truth'),
+            ('setpoint', 'setpoint'),       # se conecta al control_node
         ],
         output='screen',
     )
@@ -134,6 +150,7 @@ def launch_setup(context, *args, **kwargs):
         joint_state_pub,
         robot_state_pub,
         coords_transform_node,
+        control_node,
         bug0_node,
     ]
 

@@ -4,7 +4,7 @@ import signal
 import numpy as np
 import rclpy
 import transforms3d
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Point, Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
@@ -31,7 +31,6 @@ class Bug0Node(Node):
         self.declare_parameter('wall_dist_target',   0.35)  # m
         self.declare_parameter('linear_speed',       0.12)  # m/s
         self.declare_parameter('angular_speed',      0.60)  # rad/s
-        self.declare_parameter('kp_angle',           1.50)  # ganancia P angular go-to-goal
         self.declare_parameter('kp_wall',            1.20)  # ganancia P wall-follow
 
         self._load_params()
@@ -48,13 +47,16 @@ class Bug0Node(Node):
         self.scan_right = float('inf')
         self.scan_ready = False
 
+        # Controla si el PID ya tiene el setpoint del goal final publicado
+        self._pid_goal_sent = False
+
         # ── Publishers ────────────────────────────────────────────────────────
-        self.pub_cmd     = self.create_publisher(Twist,  '/cmd_vel',          10)
-        self.pub_goal_mk = self.create_publisher(Marker, '/bug0/goal_marker', 10)
-        self.pub_pose_mk = self.create_publisher(Marker, '/bug0/robot_pose',  10)
+        self.pub_cmd      = self.create_publisher(Twist,  '/cmd_vel',          10)
+        self.pub_setpoint = self.create_publisher(Point,  'setpoint',          10)
+        self.pub_goal_mk  = self.create_publisher(Marker, '/bug0/goal_marker', 10)
+        self.pub_pose_mk  = self.create_publisher(Marker, '/bug0/robot_pose',  10)
 
         # ── Subscribers ───────────────────────────────────────────────────────
-        # 'odom' se remapea a '/ground_truth' en el launch
         self.create_subscription(Odometry,  'odom',  self.odom_cb,  10)
         self.create_subscription(LaserScan, '/scan', self.scan_cb,  10)
 
@@ -79,7 +81,6 @@ class Bug0Node(Node):
         self.wall_dist_target   = self.get_parameter('wall_dist_target').value
         self.linear_speed       = self.get_parameter('linear_speed').value
         self.angular_speed      = self.get_parameter('angular_speed').value
-        self.kp_angle           = self.get_parameter('kp_angle').value
         self.kp_wall            = self.get_parameter('kp_wall').value
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -106,6 +107,23 @@ class Bug0Node(Node):
         t.linear.x  = float(linear)
         t.angular.z = float(angular)
         self.pub_cmd.publish(t)
+
+    def _send_setpoint(self, x: float, y: float):
+        """Publica un setpoint para que el control_node (PID) mueva el robot."""
+        msg = Point()
+        msg.x = x
+        msg.y = y
+        msg.z = 0.0
+        self.pub_setpoint.publish(msg)
+
+    def _cancel_pid(self):
+        """
+        Cancela el PID enviando la posición actual como setpoint (error = 0)
+        y detiene el robot directamente para tomar el control en WALL_FOLLOW.
+        """
+        self._send_setpoint(self.x, self.y)
+        self._cmd(0.0, 0.0)
+        self._pid_goal_sent = False
 
     # ──────────────────────────────────────────────────────────────────────────
     # Callbacks
@@ -142,7 +160,7 @@ class Bug0Node(Node):
         # ── Llegada al goal — siempre se verifica, sin bloqueos ───────────────
         if dist < self.goal_tolerance:
             self.state = GOAL_REACHED
-            self._cmd(0.0, 0.0)
+            self._cancel_pid()
             self.get_logger().info(
                 f'*** GOAL ALCANZADO ***  '
                 f'pose=({self.x:.3f}, {self.y:.3f})  dist={dist:.3f} m')
@@ -159,21 +177,20 @@ class Bug0Node(Node):
         if self.scan_front < self.obstacle_threshold:
             self.hit_dist = dist
             self.state    = WALL_FOLLOW
+            self._cancel_pid()          # detiene el PID antes de tomar cmd_vel
             self.get_logger().info(
                 f'Obstáculo a {self.scan_front:.2f} m → WALL_FOLLOW '
                 f'(hit_dist={dist:.2f} m)')
             return
 
-        # Control proporcional: gira hacia el goal y avanza
-        angle_err = self._angle_to_goal()
-        angular   = float(np.clip(
-            self.kp_angle * angle_err,
-            -self.angular_speed,
-             self.angular_speed))
-        # Reduce velocidad lineal si el error angular es grande
-        linear = self.linear_speed * max(0.0, 1.0 - abs(angle_err) / math.pi)
-
-        self._cmd(linear, angular)
+        # Delegar la navegación al control_node (PID).
+        # Solo se publica el setpoint una vez por tramo; el PID lo mantiene
+        # activo hasta que lo cancelamos o llegamos al goal.
+        if not self._pid_goal_sent:
+            self._send_setpoint(self.goal_x, self.goal_y)
+            self._pid_goal_sent = True
+            self.get_logger().info(
+                f'Setpoint enviado al PID: ({self.goal_x:.2f}, {self.goal_y:.2f})')
 
     # ── WALL FOLLOW ────────────────────────────────────────────────────────────
     def _step_wall_follow(self, dist: float):
@@ -182,6 +199,7 @@ class Bug0Node(Node):
         # Condición de salida Bug 0
         if front_free and dist < self.hit_dist:
             self.state = GO_TO_GOAL
+            self._pid_goal_sent = False  # fuerza re-envío del setpoint al PID
             self.get_logger().info(
                 f'Frente libre, dist={dist:.2f} < hit={self.hit_dist:.2f} '
                 f'→ GO_TO_GOAL')
@@ -220,7 +238,7 @@ class Bug0Node(Node):
 
     # ──────────────────────────────────────────────────────────────────────────
     def _stop_handler(self, signum, frame):
-        self._cmd(0.0, 0.0)
+        self._cancel_pid()
         raise SystemExit
 
 
@@ -232,7 +250,7 @@ def main(args=None):
     except SystemExit:
         pass
     finally:
-        node._cmd(0.0, 0.0)
+        node._cancel_pid()
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
