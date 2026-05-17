@@ -1,14 +1,16 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Parámetros del paquete bug_sim
+# ─────────────────────────────────────────────────────────────────────────────
 
+# ── Nodo de trayectoria (solo para pruebas sin Bug0) ─────────────────────────
 Trajectory_node:
   ros__parameters:
     area: 4.0
-    coordenadas_x: [0.0,    1.5,    1.5,    0.0,    0.0]
-    coordenadas_y: [0.0,    0.0,    1.5,    1.5,    0.0]
-    velocidad:     [0.35,    0.35,    0.35,    0.35,    0.35]
-    #coordenadas_x: [0.0,  1.0,  1.0]
-    #coordenadas_y: [0.0,  0.0,  1.0]
-    #velocidad:     [0.2,  0.2,  0.2]
+    coordenadas_x: [0.0,  1.5,  1.5,  0.0,  0.0]
+    coordenadas_y: [0.0,  0.0,  1.5,  1.5,  0.0]
+    velocidad:     [0.35, 0.35, 0.35, 0.35, 0.35]
 
+# ── Controlador PID de posición (point_stabilisation_control) ────────────────
 control_node:
   ros__parameters:
     kp_lin: 1.5
@@ -25,13 +27,35 @@ control_node:
     max_angular:    0.8
     control_rate:   20.0
 
+# ── Localización (dead reckoning con covarianzas) ────────────────────────────
 localisation_node:
   ros__parameters:
-    wheel_radius: 0.05
-    wheel_base:   0.108
-    kr: 0.014
-    kl: 0.014
+    wheel_radius: 0.05    # m
+    wheel_base:   0.108   # m
+    kr:           0.014   # ruido rueda derecha
+    kl:           0.014   # ruido rueda izquierda
 
-data_logger_node:
+# ── Bug 0 ────────────────────────────────────────────────────────────────────
+# goal_x / goal_y se sobreescriben desde el launch según el mundo cargado.
+#
+# GO_TO_GOAL  : el PID maneja cmd_vel  →  solo ajustar tolerancias en control_node
+# WALL_FOLLOW : cmd_vel directo        →  ajustar wall_* y kp_wall aquí
+bug0_node:
   ros__parameters:
-    num_waypoints: 3
+    # Goal — sobreescrito por el launch según el mundo
+    goal_x: 1.45
+    goal_y: 1.20
+
+    # Detección de obstáculos
+    obstacle_threshold: 0.40   # m  — aumentar si el robot reacciona tarde
+    goal_tolerance:     0.10   # m  — radio de llegada al goal final
+
+    # Sectores angulares del LiDAR
+    forward_fov_deg:  40.0    # ° — sector frontal (±20°) para detección
+    side_fov_deg:     30.0    # ° — sector derecho (±15°) para medir pared
+
+    # Seguimiento de pared (WALL_FOLLOW con cmd_vel directo)
+    wall_dist_target:   0.35  # m   — distancia ideal a la pared derecha
+    wall_linear_speed:  0.10  # m/s — velocidad de avance al bordear
+    wall_angular_speed: 0.50  # rad/s — velocidad máxima de giro
+    kp_wall:            1.20  # ganancia P: wall_error → angular_z

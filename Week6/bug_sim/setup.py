@@ -33,6 +33,7 @@ setup(
             'joint_state_pub = bug_sim.joint_state_pub:main',
             'puzzlebot_sim = bug_sim.puzzlebot_sim:main',
             'coords_transform = bug_sim.coords_transform:main',
+            'bug0_node = bug_sim.bug0_node:main',
         ],
     },
 )
