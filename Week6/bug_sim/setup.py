@@ -34,6 +34,7 @@ setup(
             'puzzlebot_sim = bug_sim.puzzlebot_sim:main',
             'coords_transform = bug_sim.coords_transform:main',
             'bug0_node = bug_sim.bug0_node:main',
+            'bug2_node = bug_sim.bug2_node:main',
         ],
     },
 )
