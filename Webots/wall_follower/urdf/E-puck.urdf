@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<robot name="E-puck">
+    <webots>
+        <plugin type="wall_follower.epuck_driver.EpuckDriver" />
+    </webots>
+</robot>
