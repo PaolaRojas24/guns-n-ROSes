@@ -27,8 +27,8 @@ class Bug0Node(Node):
         self.declare_parameter('forward_fov_deg',    40.0)  # °
         self.declare_parameter('side_fov_deg',       30.0)  # °
         self.declare_parameter('wall_dist_target',   0.35)  # m
-        self.declare_parameter('linear_speed',       0.12)  # m/s
-        self.declare_parameter('angular_speed',      0.60)  # rad/s
+        self.declare_parameter('wall_linear_speed',       0.12)  # m/s
+        self.declare_parameter('wall_angular_speed',      0.60)  # rad/s
         self.declare_parameter('kp_wall',            1.20)  # ganancia P wall-follow
 
         self._load_params()
@@ -73,8 +73,8 @@ class Bug0Node(Node):
         self.forward_fov_deg    = self.get_parameter('forward_fov_deg').value
         self.side_fov_deg       = self.get_parameter('side_fov_deg').value
         self.wall_dist_target   = self.get_parameter('wall_dist_target').value
-        self.linear_speed       = self.get_parameter('linear_speed').value
-        self.angular_speed      = self.get_parameter('angular_speed').value
+        self.wall_linear_speed       = self.get_parameter('wall_linear_speed').value
+        self.wall_angular_speed      = self.get_parameter('wall_angular_speed').value
         self.kp_wall            = self.get_parameter('kp_wall').value
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -203,14 +203,14 @@ class Bug0Node(Node):
         wall_error = self.scan_right - self.wall_dist_target
         angular    = float(np.clip(
             -self.kp_wall * wall_error,
-            -self.angular_speed,
-             self.angular_speed))
+            -self.wall_angular_speed,
+             self.wall_angular_speed))
 
         if not front_free:
             # Frente bloqueado: girar en sitio a la izquierda
-            self._cmd(0.0, self.angular_speed)
+            self._cmd(0.0, self.wall_angular_speed)
         else:
-            self._cmd(self.linear_speed, angular)
+            self._cmd(self.wall_linear_speed, angular)
 
     # ──────────────────────────────────────────────────────────────────────────
     # Debug

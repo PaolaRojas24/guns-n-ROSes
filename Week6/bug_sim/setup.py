@@ -27,7 +27,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'trayectory_node = bug_sim.trayectory_node:main',
             'PointStabilisation_node = bug_sim.point_stabilisation_control:main',
             'localisation = bug_sim.localisation:main',
             'joint_state_pub = bug_sim.joint_state_pub:main',

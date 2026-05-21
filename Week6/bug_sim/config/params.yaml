@@ -40,6 +40,28 @@ bug0_node:
 
     # Seguimiento de pared (WALL_FOLLOW con cmd_vel directo)
     wall_dist_target:   0.35  # m   — distancia ideal a la pared derecha
-    wall_linear_speed:  0.10  # m/s — velocidad de avance al bordear
-    wall_angular_speed: 0.50  # rad/s — velocidad máxima de giro
+    wall_linear_speed:  0.12  # m/s — velocidad de avance al bordear
+    wall_angular_speed: 0.60  # rad/s — velocidad máxima de giro
     kp_wall:            1.20  # ganancia P: wall_error → angular_z
+
+# ── Bug 2 ────────────────────────────────────────────────────────────────────
+bug2_node:
+  ros__parameters:
+    # Goal — sobreescrito por el launch según el mundo
+    goal_x: 1.45
+    goal_y: 1.20
+
+    # Detección de obstáculos
+    obstacle_threshold: 0.40   # m  — aumentar si el robot reacciona tarde
+    goal_tolerance:     0.10   # m  — radio de llegada al goal final
+
+    # Sectores angulares del LiDAR
+    forward_fov_deg:  40.0    # ° — sector frontal (±20°) para detección
+    side_fov_deg:     30.0    # ° — sector derecho (±15°) para medir pared
+
+    # Seguimiento de pared (WALL_FOLLOW con cmd_vel directo)
+    wall_dist_target:   0.35  # m   — distancia ideal a la pared derecha
+    wall_linear_speed:  0.12  # m/s — velocidad de avance al bordear
+    wall_angular_speed: 0.60  # rad/s — velocidad máxima de giro
+    kp_wall:            1.20  # ganancia P: wall_error → angular_z
+    mline_tolerance:    0.10
