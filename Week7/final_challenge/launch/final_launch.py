@@ -16,9 +16,10 @@ from launch.actions import ExecuteProcess
 WORLD_GOALS = {
     'office.world': (1.45,   1.20),
     'puzzlebot_aruco_markers.world': (-1.20,  1.50),
+    'maze.world': (-1.20,  1.50),
 }
 
-DEFAULT_WORLD = 'office.world'
+DEFAULT_WORLD = 'maze.world'
 
 
 def launch_setup(context, *args, **kwargs):
@@ -158,8 +159,8 @@ def launch_setup(context, *args, **kwargs):
         coords_transform_node,
         control_node,
         bug0_node,
-        graph_node,
-        tree_node,
+        #graph_node,
+        #tree_node,
     ]
 
 
