@@ -34,6 +34,7 @@ setup(
             'coords_transform = final_challenge.coords_transform:main',
             'bug0_node = final_challenge.bug0_node:main',
             'bug2_node = final_challenge.bug2_node:main',
+            'camera_node = final_challenge.camera_node:main',
         ],
     },
 )
