@@ -1,25 +1,3 @@
-"""
-camera_node.py
-==============
-Nodo ROS 2 para detección de marcadores ArUco desde la cámara del Puzzlebot
-en simulación Gazebo.
-
-Suscripciones:
-  /camera  (sensor_msgs/Image)      – imagen sin rectificar
-  /camera_info (sensor_msgs/CameraInfo) – parámetros intrínsecos
-
-Publicaciones:
-  /aruco/detections   (final_challenge/ArucoDetection) – NO existe aún,
-                       se publica como PoseArray por compatibilidad
-  /aruco/image_debug  (sensor_msgs/Image)              – imagen anotada
-
-Los datos de pose de cada marcador detectado se publican también en TF
-como 'marker_<id>' referenciado al frame de la cámara.
-
-Dependencias externas permitidas:
-  opencv-contrib-python, numpy
-"""
-
 import numpy as np
 import cv2
 from cv2 import aruco
@@ -255,6 +233,8 @@ class CameraNode(Node):
 
                 # ── Distancia y anotación en debug ────────────────────────────
                 dist = float(np.linalg.norm(tvec))
+                angle_rad = math.atan2(tvec[0], tvec[2])
+                angle_deg = math.degrees(angle_rad)
 
                 if debug_frame is not None:
                     cv2.drawFrameAxes(
@@ -269,7 +249,7 @@ class CameraNode(Node):
                     c = corner[0].mean(axis=0).astype(int)
                     cv2.putText(
                         debug_frame,
-                        f'id={marker_id}  {dist:.2f}m',
+                        f'id={marker_id} {dist:.2f}m {angle_deg:.1f} deg',
                         (c[0], c[1] - 10),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.5,

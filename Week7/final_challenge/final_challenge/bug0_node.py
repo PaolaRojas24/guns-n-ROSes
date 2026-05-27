@@ -1,5 +1,4 @@
 import math
-
 import numpy as np
 import rclpy
 import transforms3d
@@ -13,6 +12,9 @@ GO_TO_GOAL   = 'GO_TO_GOAL'
 WALL_FOLLOW  = 'WALL_FOLLOW'
 GOAL_REACHED = 'GOAL_REACHED'
 
+# Número de waypoints esperados en el YAML
+_N_GOALS = 4
+
 
 class Bug0Node(Node):
 
@@ -20,18 +22,37 @@ class Bug0Node(Node):
         super().__init__('bug0_node')
 
         # ── Parámetros ────────────────────────────────────────────────────────
-        self.declare_parameter('goal_x',             2.0)
-        self.declare_parameter('goal_y',             0.0)
-        self.declare_parameter('obstacle_threshold', 0.40)  # m
-        self.declare_parameter('goal_tolerance',     0.20)  # m
-        self.declare_parameter('forward_fov_deg',    40.0)  # °
-        self.declare_parameter('side_fov_deg',       30.0)  # °
-        self.declare_parameter('wall_dist_target',   0.35)  # m
-        self.declare_parameter('wall_linear_speed',       0.12)  # m/s
-        self.declare_parameter('wall_angular_speed',      0.60)  # rad/s
-        self.declare_parameter('kp_wall',            1.20)  # ganancia P wall-follow
+        self.declare_parameter('obstacle_threshold', 0.40)
+        self.declare_parameter('goal_tolerance',     0.20)
+        self.declare_parameter('forward_fov_deg',    40.0)
+        self.declare_parameter('side_fov_deg',       30.0)
+        self.declare_parameter('wall_dist_target',   0.35)
+        self.declare_parameter('wall_linear_speed',  0.12)
+        self.declare_parameter('wall_angular_speed', 0.60)
+        self.declare_parameter('kp_wall',            1.20)
+
+        # ── Parámetros de waypoints (del YAML del mundo) ──────────────────────
+        for i in range(1, _N_GOALS + 1):
+            self.declare_parameter(f'trajectory_goals.goal_{i}.x', 0.0)
+            self.declare_parameter(f'trajectory_goals.goal_{i}.y', 0.0)
 
         self._load_params()
+
+        # ── Trayectoria ───────────────────────────────────────────────────────
+        self.waypoints      = self._load_waypoints()
+        self.waypoint_index = 0
+
+        if not self.waypoints:
+            self.get_logger().error(
+                'No se cargaron waypoints. Verifica que el config YAML del '
+                'mundo se está pasando en el launch file.'
+            )
+        else:
+            self.get_logger().info(
+                f'Trayectoria cargada ({len(self.waypoints)} waypoints):'
+            )
+            for i, (wx, wy) in enumerate(self.waypoints):
+                self.get_logger().info(f'  goal_{i + 1}: ({wx:.2f}, {wy:.2f})')
 
         # ── Estado ────────────────────────────────────────────────────────────
         self.state    = GO_TO_GOAL
@@ -45,37 +66,75 @@ class Bug0Node(Node):
         self.scan_right = float('inf')
         self.scan_ready = False
 
-        # Controla si el PID ya tiene el setpoint del goal final publicado
         self._pid_goal_sent = False
 
         # ── Publishers ────────────────────────────────────────────────────────
-        self.pub_cmd      = self.create_publisher(Twist, '/cmd_vel',  10)
-        self.pub_setpoint = self.create_publisher(Point, 'setpoint',  10)
+        self.pub_cmd      = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.pub_setpoint = self.create_publisher(Point, 'setpoint', 10)
 
         # ── Subscribers ───────────────────────────────────────────────────────
-        self.create_subscription(Odometry,  'odom',  self.odom_cb,  10)
-        self.create_subscription(LaserScan, '/scan', self.scan_cb,  10)
+        self.create_subscription(Odometry,  'odom',  self.odom_cb, 10)
+        self.create_subscription(LaserScan, '/scan', self.scan_cb, 10)
 
         # ── Timers ────────────────────────────────────────────────────────────
-        self.create_timer(0.05, self.control_loop)  # 20 Hz
-        self.create_timer(1.0,  self.debug_log)     #  1 Hz
+        self.create_timer(0.05, self.control_loop)
+        self.create_timer(1.0,  self.debug_log)
 
         self.get_logger().info(
-            f'Bug0Node listo. Goal: ({self.goal_x:.2f}, {self.goal_y:.2f})  '
-            f'tolerance={self.goal_tolerance:.2f} m')
+            f'Bug0Node listo. Primer goal: ({self.goal_x:.2f}, {self.goal_y:.2f})  '
+            f'tolerance={self.goal_tolerance:.2f} m'
+        )
 
     # ──────────────────────────────────────────────────────────────────────────
     def _load_params(self):
-        self.goal_x             = self.get_parameter('goal_x').value
-        self.goal_y             = self.get_parameter('goal_y').value
         self.obstacle_threshold = self.get_parameter('obstacle_threshold').value
         self.goal_tolerance     = self.get_parameter('goal_tolerance').value
         self.forward_fov_deg    = self.get_parameter('forward_fov_deg').value
         self.side_fov_deg       = self.get_parameter('side_fov_deg').value
         self.wall_dist_target   = self.get_parameter('wall_dist_target').value
-        self.wall_linear_speed       = self.get_parameter('wall_linear_speed').value
-        self.wall_angular_speed      = self.get_parameter('wall_angular_speed').value
+        self.wall_linear_speed  = self.get_parameter('wall_linear_speed').value
+        self.wall_angular_speed = self.get_parameter('wall_angular_speed').value
         self.kp_wall            = self.get_parameter('kp_wall').value
+
+    # ──────────────────────────────────────────────────────────────────────────
+    def _load_waypoints(self) -> list:
+        """
+        Lee trajectory_goals.goal_<i>.{x,y} de los parámetros ROS 2.
+        Retorna lista ordenada de (x, y). Ignora goals con x==0 y y==0.
+        """
+        waypoints = []
+        for i in range(1, _N_GOALS + 1):
+            x = self.get_parameter(f'trajectory_goals.goal_{i}.x').value
+            y = self.get_parameter(f'trajectory_goals.goal_{i}.y').value
+            if x == 0.0 and y == 0.0:
+                continue
+            waypoints.append((float(x), float(y)))
+        return waypoints
+
+    # ── Goal activo ───────────────────────────────────────────────────────────
+
+    @property
+    def goal_x(self) -> float:
+        return self.waypoints[self.waypoint_index][0] if self.waypoints else 0.0
+
+    @property
+    def goal_y(self) -> float:
+        return self.waypoints[self.waypoint_index][1] if self.waypoints else 0.0
+
+    def _advance_to_next_waypoint(self):
+        """Avanza al siguiente waypoint en ciclo cerrado."""
+        prev_idx = self.waypoint_index
+        self.waypoint_index = (self.waypoint_index + 1) % len(self.waypoints)
+
+        self.state          = GO_TO_GOAL
+        self.hit_dist       = float('inf')
+        self._pid_goal_sent = False
+
+        self.get_logger().info(
+            f'Waypoint {prev_idx + 1} alcanzado → '
+            f'siguiente: goal_{self.waypoint_index + 1} '
+            f'({self.goal_x:.2f}, {self.goal_y:.2f})'
+        )
 
     # ──────────────────────────────────────────────────────────────────────────
     @staticmethod
@@ -103,7 +162,6 @@ class Bug0Node(Node):
         self.pub_cmd.publish(t)
 
     def _send_setpoint(self, x: float, y: float):
-        """Publica un setpoint para que el control_node (PID) mueva el robot."""
         msg = Point()
         msg.x = x
         msg.y = y
@@ -111,10 +169,6 @@ class Bug0Node(Node):
         self.pub_setpoint.publish(msg)
 
     def _cancel_pid(self):
-        """
-        Cancela el PID enviando la posición actual como setpoint (error = 0)
-        y detiene el robot directamente para tomar el control en WALL_FOLLOW.
-        """
         self._send_setpoint(self.x, self.y)
         self._cmd(0.0, 0.0)
         self._pid_goal_sent = False
@@ -151,13 +205,10 @@ class Bug0Node(Node):
 
         dist = self._dist_to_goal()
 
-        # ── Llegada al goal — siempre se verifica, sin bloqueos ───────────────
+        # ── Llegada al waypoint activo ────────────────────────────────────────
         if dist < self.goal_tolerance:
-            self.state = GOAL_REACHED
             self._cancel_pid()
-            self.get_logger().info(
-                f'*** GOAL ALCANZADO ***  '
-                f'pose=({self.x:.3f}, {self.y:.3f})  dist={dist:.3f} m')
+            self._advance_to_next_waypoint()
             return
 
         if self.state == GO_TO_GOAL:
@@ -167,39 +218,37 @@ class Bug0Node(Node):
 
     # ── GO TO GOAL ─────────────────────────────────────────────────────────────
     def _step_go_to_goal(self, dist: float):
-        # ¿Obstáculo al frente?
         if self.scan_front < self.obstacle_threshold:
             self.hit_dist = dist
             self.state    = WALL_FOLLOW
-            self._cancel_pid()          # detiene el PID antes de tomar cmd_vel
+            self._cancel_pid()
             self.get_logger().info(
                 f'Obstáculo a {self.scan_front:.2f} m → WALL_FOLLOW '
-                f'(hit_dist={dist:.2f} m)')
+                f'(hit_dist={dist:.2f} m)'
+            )
             return
 
-        # Delegar la navegación al control_node (PID).
-        # Solo se publica el setpoint una vez por tramo; el PID lo mantiene
-        # activo hasta que lo cancelamos o llegamos al goal.
         if not self._pid_goal_sent:
             self._send_setpoint(self.goal_x, self.goal_y)
             self._pid_goal_sent = True
             self.get_logger().info(
-                f'Setpoint enviado al PID: ({self.goal_x:.2f}, {self.goal_y:.2f})')
+                f'Setpoint enviado al PID: ({self.goal_x:.2f}, {self.goal_y:.2f})'
+            )
 
     # ── WALL FOLLOW ────────────────────────────────────────────────────────────
     def _step_wall_follow(self, dist: float):
         front_free = self.scan_front >= self.obstacle_threshold
 
-        # Condición de salida Bug 0
+        # Condición de salida Bug 0: frente libre y más cerca del goal
         if front_free and dist < self.hit_dist:
-            self.state = GO_TO_GOAL
-            self._pid_goal_sent = False  # fuerza re-envío del setpoint al PID
+            self.state          = GO_TO_GOAL
+            self._pid_goal_sent = False
             self.get_logger().info(
                 f'Frente libre, dist={dist:.2f} < hit={self.hit_dist:.2f} '
-                f'→ GO_TO_GOAL')
+                f'→ GO_TO_GOAL'
+            )
             return
 
-        # Control P para mantener distancia a la pared derecha
         wall_error = self.scan_right - self.wall_dist_target
         angular    = float(np.clip(
             -self.kp_wall * wall_error,
@@ -207,7 +256,6 @@ class Bug0Node(Node):
              self.wall_angular_speed))
 
         if not front_free:
-            # Frente bloqueado: girar en sitio a la izquierda
             self._cmd(0.0, self.wall_angular_speed)
         else:
             self._cmd(self.wall_linear_speed, angular)
@@ -219,18 +267,17 @@ class Bug0Node(Node):
         dist = self._dist_to_goal()
         self.get_logger().info(
             f'\n'
-            f'  Estado       : {self.state}\n'
-            f'  Pose robot   : x={self.x:.3f}  y={self.y:.3f}  '
+            f'  Estado         : {self.state}\n'
+            f'  Waypoint activo: goal_{self.waypoint_index + 1} '
+            f'({self.goal_x:.2f}, {self.goal_y:.2f})\n'
+            f'  Pose robot     : x={self.x:.3f}  y={self.y:.3f}  '
             f'yaw={math.degrees(self.yaw):.1f}°\n'
-            f'  Goal         : x={self.goal_x:.3f}  y={self.goal_y:.3f}\n'
-            f'  Dist al goal : {dist:.3f} m  (tolerance={self.goal_tolerance:.2f} m)\n'
-            f'  LiDAR frente : {self.scan_front:.3f} m  '
+            f'  Dist al goal   : {dist:.3f} m  (tolerance={self.goal_tolerance:.2f} m)\n'
+            f'  LiDAR frente   : {self.scan_front:.3f} m  '
             f'(umbral={self.obstacle_threshold:.2f} m)\n'
-            f'  LiDAR derecha: {self.scan_right:.3f} m\n'
-            f'  hit_dist     : {self.hit_dist:.3f} m'
+            f'  LiDAR derecha  : {self.scan_right:.3f} m\n'
+            f'  hit_dist       : {self.hit_dist:.3f} m'
         )
-
-    # ──────────────────────────────────────────────────────────────────────────
 
 
 def main(args=None):

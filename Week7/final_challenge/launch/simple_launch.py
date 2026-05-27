@@ -13,10 +13,10 @@ from launch_ros.actions import Node
 from launch.actions import ExecuteProcess
 
 
-WORLD_GOALS = {
-    'office.world': (1.45,   1.20),
-    'puzzlebot_aruco_markers.world': (-1.20,  1.50),
-    'maze.world': (-1.20,  1.50),
+WORLD_CONFIGS = {
+    'maze.world': 'maze.yaml',
+    'maze2.world': 'maze2.yaml',
+    'maze3.world': 'maze3.yaml',
 }
 
 DEFAULT_WORLD = 'maze.world'
@@ -24,10 +24,14 @@ DEFAULT_WORLD = 'maze.world'
 
 def launch_setup(context, *args, **kwargs):
     world_name = LaunchConfiguration('world').perform(context)
-    goal_x, goal_y = WORLD_GOALS.get(world_name, (2.00, -2.00))
+    pkg_final_challenge = get_package_share_directory('final_challenge')
+    config_file = os.path.join(
+        pkg_final_challenge,
+        'config',
+        WORLD_CONFIGS[world_name]
+    )
 
     pkg_gazebo  = get_package_share_directory('puzzlebot_gazebo')
-    pkg_final_challenge = get_package_share_directory('final_challenge')
     params_file = os.path.join(pkg_final_challenge, 'config', 'params.yaml')
 
     urdf_path = os.path.join(pkg_final_challenge, 'urdf', 'puzzlebot.urdf')
@@ -70,7 +74,7 @@ def launch_setup(context, *args, **kwargs):
         package='final_challenge',
         executable='localisation',
         name='localisation_node',
-        parameters=[params_file, {'use_sim_time': True}],
+        parameters=[params_file, config_file, {'use_sim_time': True}],
         remappings=[
             ('wl', '/VelocityEncL'),
             ('wr', '/VelocityEncR'),
@@ -122,14 +126,20 @@ def launch_setup(context, *args, **kwargs):
         package='final_challenge',
         executable='bug0_node',
         name='bug0_node',
-        parameters=[
-            params_file,
-            {
-                'goal_x':       goal_x,
-                'goal_y':       goal_y,
-                'use_sim_time': True,
-            }
+        parameters=[params_file, config_file],
+        remappings=[
+            ('odom',     '/ground_truth'),
+            ('setpoint', 'setpoint'), 
         ],
+        output='screen',
+    )
+
+    # ── bug2_node ─────────────────────────────────────────────────────────────
+    bug2_node = Node(
+        package='final_challenge',
+        executable='bug2_node',
+        name='bug2_node',
+        parameters=[params_file, config_file],
         remappings=[
             ('odom',     '/ground_truth'),
             ('setpoint', 'setpoint'), 
@@ -164,6 +174,18 @@ def launch_setup(context, *args, **kwargs):
         output='screen',
     )
 
+    rviz_config = os.path.join(
+        get_package_share_directory('elipse_sim'),
+        'rviz',
+        'puzzlebot_rviz.rviz'
+    )
+
+    rviz_node = Node(name='rviz',
+        package='rviz2',
+        executable='rviz2',
+        arguments=['-d', rviz_config]
+    )
+
     return [
         gazebo_launch,
         robot_launch,
@@ -175,8 +197,10 @@ def launch_setup(context, *args, **kwargs):
         camera_node,
         image_node,
         #bug0_node,
+        bug2_node,
         #graph_node,
         #tree_node,
+        #rviz_node,
     ]
 
 

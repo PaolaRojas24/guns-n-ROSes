@@ -1,0 +1,111 @@
+<sdf version="1.4">
+  <world name="default">
+      <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <plugin
+      filename="gz-sim-physics-system"
+      name="gz::sim::systems::Physics">
+    </plugin>
+    <plugin
+      filename="gz-sim-user-commands-system"
+      name="gz::sim::systems::UserCommands">
+    </plugin>
+    <plugin
+      filename="gz-sim-scene-broadcaster-system"
+      name="gz::sim::systems::SceneBroadcaster">
+    </plugin>
+    <plugin
+        filename="gz-sim-sensors-system"
+        name="gz::sim::systems::Sensors">
+        <render_engine>ogre2</render_engine>
+    </plugin>
+    <scene>
+      <ambient>0.4 0.4 0.4 1</ambient>
+      <background>0.7 0.7 0.7 1</background>
+      <shadows>false</shadows>
+    </scene>
+
+    <!-- Arena lights -->
+    <include>
+      <name>light1</name>
+      <uri>model://simple_light</uri>
+      <pose>2 2 10 0 0 0</pose>
+    </include>
+    <include>
+      <name>light2</name>
+      <uri>model://simple_light</uri>
+      <pose>-2 2 10 0 0 0</pose>
+    </include>
+    <include>
+      <name>light3</name>
+      <uri>model://simple_light</uri>
+      <pose>-2 -2 10 0 0 0</pose>
+    </include>
+    <include>
+      <name>light4</name>
+      <uri>model://simple_light</uri>
+      <pose>2 -2 10 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://office_floor</uri>
+    </include>
+    <include>
+      <uri>model://office_model</uri>
+    </include>
+
+    <!-- Aruco Markers -->
+    <include>
+      <name>marker_0</name>
+      <uri>model://aruco_marker_0</uri>
+      <pose>3.90 -1.60 0.12 0 0 -3.141592654</pose>
+    </include>
+    <include>
+      <name>marker_1</name>
+      <uri>model://aruco_marker_1</uri>
+      <pose>-1.30 2.25 0.12 0 0 0</pose>
+    </include>
+    <include>
+      <name>marker_2</name>
+      <uri>model://aruco_marker_2</uri>
+      <pose>-1.80 -3.9 0.12 0 0 1.5708</pose>
+    </include>
+    <include>
+      <name>marker_3</name>
+      <uri>model://aruco_marker_3</uri>
+      <pose>-2.90 1.20 0.12 0 0 -1.5708</pose>
+    </include>
+
+    <!-- Goal Markers -->
+    <include>
+      <name>goal_1</name>
+      <uri>model://goal_marker_5</uri>
+      <pose>2.81 -2.73 0.01 0 0 0</pose>
+    </include>
+    <include>
+      <name>goal_2</name>
+      <uri>model://goal_marker_5</uri>
+      <pose>0 2.25 0.01 0 0 0</pose>
+    </include>
+    <include>
+      <name>goal_3</name>
+      <uri>model://goal_marker_5</uri>
+      <pose>-3.40 -2.40 0.01 0 0 0</pose>
+    </include>
+    <include>
+      <name>goal_4</name>
+      <uri>model://goal_marker_5</uri>
+      <pose>-2.05 -0.7 0.01 0 0 0</pose>
+    </include>
+
+    <gui fullscreen='0'>
+      <camera name='user_camera'>
+        <pose>-8.0 -8.0 10.0 0 0.785 0.785</pose>
+        <view_controller>orbit</view_controller>
+      </camera>
+    </gui>
+
+  </world>
+</sdf>

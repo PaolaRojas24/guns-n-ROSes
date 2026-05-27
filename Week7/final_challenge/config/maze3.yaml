@@ -1,0 +1,61 @@
+# ── Marcadores ────────────────────────────────────────────────────────────────
+localisation_node:
+  ros__parameters:
+    aruco_map:
+      marker_0:
+        x:    3.90
+        y:   -1.60
+        yaw: -3.141593        
+
+      marker_1:
+        x:   -1.30
+        y:    2.25
+        yaw:  0.0     
+
+      marker_2:
+        x:   -1.80
+        y:   -3.90
+        yaw:  1.5708  
+
+      marker_3:
+        x:   -2.90
+        y:    1.20
+        yaw: -1.5708   
+
+bug0_node:
+  ros__parameters:
+    trajectory_goals:
+      goal_1:
+        x:    2.81
+        y:   -2.73
+      
+      goal_2:
+        x:    0.0
+        y:    2.25
+      
+      goal_3:
+        x:   -3.40
+        y:   -2.40
+
+      goal_4:
+        x:   -2.05
+        y:   -0.70  
+
+bug2_node:
+  ros__parameters:
+    trajectory_goals:
+      goal_1:
+        x:    2.81
+        y:   -2.73
+      
+      goal_2:
+        x:    0.0
+        y:    2.25
+      
+      goal_3:
+        x:   -3.40
+        y:   -2.40
+
+      goal_4:
+        x:   -2.05
+        y:   -0.70

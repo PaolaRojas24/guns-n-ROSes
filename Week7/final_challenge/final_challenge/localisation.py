@@ -1,9 +1,35 @@
+"""
+localisation.py
+===============
+Nodo ROS 2 de localización para el Puzzlebot.
+
+Fase actual:  Dead reckoning + propagación de covarianza (EKF — predicción).
+Próxima fase: Corrección EKF con observaciones ArUco (ver TODO marcados).
+
+El mapa de marcadores se carga desde los parámetros ROS 2 inyectados por el
+launch file (maze.yaml / maze2.yaml / maze3.yaml):
+
+    localisation_node:
+      ros__parameters:
+        aruco_map:
+          marker_0:
+            x:   -3.90
+            y:    2.50
+            yaw:  0.0
+          ...
+
+Suscripciones:
+  /VelocityEncR  (std_msgs/Float32)  — remapeado a 'wr'
+  /VelocityEncL  (std_msgs/Float32)  — remapeado a 'wl'
+
+Publicaciones:
+  /odom  (nav_msgs/Odometry)  — pose estimada con covarianza 6×6
+"""
+
 import math
-import os
 
 import numpy as np
 import rclpy
-import yaml
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from std_msgs.msg import Float32
@@ -18,78 +44,42 @@ def _normalize_angle(angle: float) -> float:
     return math.atan2(math.sin(angle), math.cos(angle))
 
 
-def _load_aruco_map(path: str) -> dict:
-    if not os.path.isfile(path):
-        raise FileNotFoundError(
-            f'[localisation] aruco_map.yaml no encontrado: {path}'
-        )
-
-    with open(path, 'r') as f:
-        data = yaml.safe_load(f)
-
-    raw = data.get('aruco_map', {})
-    marker_map: dict = {}
-
-    for name, values in raw.items():
-        # Acepta "marker_0", "marker_12", etc.
-        try:
-            marker_id = int(name.split('_')[-1])
-        except ValueError:
-            continue
-
-        marker_map[marker_id] = {
-            'x':   float(values['x']),
-            'y':   float(values['y']),
-            'yaw': float(values.get('yaw', 0.0)),
-        }
-
-    return marker_map
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # Nodo principal
 # ══════════════════════════════════════════════════════════════════════════════
 
-class DeadReckoning(Node):
+class LocalisationNode(Node):
+
+    # IDs de marcadores esperados en todos los mundos
+    _MARKER_IDS = (0, 1, 2, 3)
+
     def __init__(self):
         super().__init__('localisation_node')
 
-        # ── Parámetros ────────────────────────────────────────────────────────
-        self.declare_parameter('wheel_radius',   0.05)
-        self.declare_parameter('wheel_base',     0.108)
-        self.declare_parameter('kr',             0.014)
-        self.declare_parameter('kl',             0.014)
-        self.declare_parameter('aruco_map_file', '')   # ruta al aruco_map.yaml
+        # ── Parámetros de cinemática ──────────────────────────────────────────
+        self.declare_parameter('wheel_radius', 0.05)
+        self.declare_parameter('wheel_base',   0.108)
+        self.declare_parameter('kr',           0.014)
+        self.declare_parameter('kl',           0.014)
 
         self.r  = self.get_parameter('wheel_radius').value
         self.L  = self.get_parameter('wheel_base').value
         self.kr = self.get_parameter('kr').value
         self.kl = self.get_parameter('kl').value
 
-        # ── Mapa de marcadores ────────────────────────────────────────────────
-        map_file = self.get_parameter('aruco_map_file').value
+        # ── Mapa de marcadores desde parámetros ROS 2 ─────────────────────────
+        # Cada marcador expone tres parámetros:
+        #   aruco_map.marker_<id>.x   (float)
+        #   aruco_map.marker_<id>.y   (float)
+        #   aruco_map.marker_<id>.yaw (float)
+        self.aruco_map: dict = {}
+        for mid in self._MARKER_IDS:
+            prefix = f'aruco_map.marker_{mid}'
+            self.declare_parameter(f'{prefix}.x',   0.0)
+            self.declare_parameter(f'{prefix}.y',   0.0)
+            self.declare_parameter(f'{prefix}.yaw', 0.0)
 
-        # Ruta por defecto: mismo directorio que este script → ../../config/
-        if not map_file:
-            pkg_dir   = os.path.dirname(os.path.abspath(__file__))
-            map_file  = os.path.join(
-                pkg_dir, '..', '..', '..', '..', 'share',
-                'final_challenge', 'config', 'aruco_map.yaml'
-            )
-            map_file  = os.path.normpath(map_file)
-
-        try:
-            self.aruco_map: dict = _load_aruco_map(map_file)
-            self.get_logger().info(
-                f'Mapa ArUco cargado ({len(self.aruco_map)} marcadores): '
-                + ', '.join(
-                    f'id={k} @ ({v["x"]:.2f}, {v["y"]:.2f})'
-                    for k, v in sorted(self.aruco_map.items())
-                )
-            )
-        except FileNotFoundError as e:
-            self.get_logger().warn(str(e))
-            self.aruco_map = {}
+        self._reload_aruco_map()
 
         # ── Estado del robot ──────────────────────────────────────────────────
         self.x   = 0.0
@@ -99,9 +89,7 @@ class DeadReckoning(Node):
         self.wr = 0.0   # velocidad angular rueda derecha [rad/s]
         self.wl = 0.0   # velocidad angular rueda izquierda [rad/s]
 
-        # Covarianza 3×3   [xx, xy, xθ]
-        #                  [yx, yy, yθ]
-        #                  [θx, θy, θθ]
+        # Covarianza 3×3  [x, y, θ]
         self.sigma = np.zeros((3, 3))
 
         self.prev_time = None
@@ -110,31 +98,69 @@ class DeadReckoning(Node):
         self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
 
         # ── Subscribers ───────────────────────────────────────────────────────
-        self.create_subscription(Float32, 'wr', self.wr_cb, 10)
-        self.create_subscription(Float32, 'wl', self.wl_cb, 10)
+        self.create_subscription(Float32, 'wr', self._wr_cb, 10)
+        self.create_subscription(Float32, 'wl', self._wl_cb, 10)
 
-        # TODO (EKF corrección): agregar suscripción a /aruco/detections
+        # TODO (EKF corrección): descomentar cuando camera_node esté integrado
+        # from geometry_msgs.msg import PoseArray
         # self.create_subscription(PoseArray, '/aruco/detections',
-        #                          self.aruco_cb, 10)
+        #                          self._aruco_cb, 10)
 
-        # ── Timer (loop de integración a 50 Hz) ───────────────────────────────
-        self.create_timer(0.02, self.update)
+        # ── Timer de integración a 50 Hz ──────────────────────────────────────
+        self.create_timer(0.02, self._update)
 
         self.get_logger().info(
-            f'Dead reckoning iniciado — r={self.r} m  L={self.L} m'
+            f'Localisation iniciado — r={self.r} m  L={self.L} m  '
+            f'marcadores={list(self.aruco_map.keys())}'
         )
+
+    # ── Carga del mapa desde parámetros ──────────────────────────────────────
+
+    def _reload_aruco_map(self):
+        """
+        Lee aruco_map.marker_<id>.{x,y,yaw} de los parámetros ROS 2 y
+        construye self.aruco_map = {id: {'x': float, 'y': float, 'yaw': float}}
+
+        Solo registra los marcadores cuyos parámetros son distintos de cero
+        (si x==0 y y==0 y yaw==0 asumimos que el mundo no declaró ese marcador
+        y lo ignoramos para no contaminar el EKF).
+        """
+        self.aruco_map = {}
+        for mid in self._MARKER_IDS:
+            prefix = f'aruco_map.marker_{mid}'
+            x   = self.get_parameter(f'{prefix}.x').value
+            y   = self.get_parameter(f'{prefix}.y').value
+            yaw = self.get_parameter(f'{prefix}.yaw').value
+
+            # Ignorar marcadores no definidos (valores por defecto todos cero)
+            if x == 0.0 and y == 0.0 and yaw == 0.0:
+                continue
+
+            self.aruco_map[mid] = {'x': float(x), 'y': float(y), 'yaw': float(yaw)}
+
+        if self.aruco_map:
+            for mid, v in sorted(self.aruco_map.items()):
+                self.get_logger().info(
+                    f'  marker_{mid}: x={v["x"]:.2f}  y={v["y"]:.2f}'
+                    f'  yaw={v["yaw"]:.4f} rad'
+                )
+        else:
+            self.get_logger().warn(
+                'aruco_map vacío — verifica que el config YAML del mundo '
+                'se está pasando como parámetro en el launch file.'
+            )
 
     # ── Callbacks de encoders ─────────────────────────────────────────────────
 
-    def wr_cb(self, msg: Float32):
+    def _wr_cb(self, msg: Float32):
         self.wr = msg.data
 
-    def wl_cb(self, msg: Float32):
+    def _wl_cb(self, msg: Float32):
         self.wl = msg.data
 
     # ── Loop de integración (predicción EKF) ──────────────────────────────────
 
-    def update(self):
+    def _update(self):
         now = self.get_clock().now()
 
         if self.prev_time is None:
@@ -151,8 +177,7 @@ class DeadReckoning(Node):
         v = self.r * (self.wr + self.wl) / 2.0
         w = self.r * (self.wl - self.wr) / self.L
 
-        # ── Jacobiano H ANTES de actualizar el estado  ← bug corregido ────────
-        # (se evalúa con el yaw actual, no con el yaw ya integrado)
+        # ── Jacobiano H evaluado ANTES de integrar (yaw actual) ───────────────
         H = np.array([
             [1.0, 0.0, -dt * v * math.sin(self.yaw)],
             [0.0, 1.0,  dt * v * math.cos(self.yaw)],
@@ -164,17 +189,17 @@ class DeadReckoning(Node):
         self.y   += v * math.sin(self.yaw + math.pi / 2.0) * dt
         self.yaw  = _normalize_angle(self.yaw + w * dt)
 
-        # ── Jacobiano de velocidades (3×2) ────────────────────────────────────
+        # ── Jacobiano de velocidades ∇w (3×2) ────────────────────────────────
         c = math.cos(self.yaw)
         s = math.sin(self.yaw)
 
         grad_w = np.array([
-            [ (self.r / 2.0) * dt * c,  (self.r / 2.0) * dt * c],
-            [ (self.r / 2.0) * dt * s,  (self.r / 2.0) * dt * s],
-            [ self.r * dt / self.L,     -self.r * dt / self.L  ],
+            [ (self.r / 2.0) * dt * c,   (self.r / 2.0) * dt * c],
+            [ (self.r / 2.0) * dt * s,   (self.r / 2.0) * dt * s],
+            [ self.r * dt / self.L,      -self.r * dt / self.L   ],
         ])
 
-        # ── Ruido de proceso  Q = ∇ω · Σ_Δ · ∇ω^T ───────────────────────────
+        # ── Ruido de proceso  Q = ∇w · Σ_Δ · ∇w^T ───────────────────────────
         sigma_delta = np.diag([
             self.kr * abs(self.wr),
             self.kl * abs(self.wl),
@@ -195,7 +220,7 @@ class DeadReckoning(Node):
         qz    = math.sin(yaw_q / 2.0)
         qw    = math.cos(yaw_q / 2.0)
 
-        # Mapeo 3×3 → 6×6 (orden ROS: x y z roll pitch yaw)
+        # Mapeo Σ 3×3 → covarianza 6×6 ROS (orden: x y z roll pitch yaw)
         cov36 = [0.0] * 36
         cov36[0]  = self.sigma[0, 0]   # x–x
         cov36[1]  = self.sigma[0, 1]   # x–y
@@ -226,16 +251,15 @@ class DeadReckoning(Node):
 
         self.odom_pub.publish(odom)
 
-    # ── Helpers públicos para el paso de corrección EKF ──────────────────────
-    # Estos métodos ya están listos; solo necesitan ser llamados desde aruco_cb.
+    # ── Helpers para el paso de corrección EKF ────────────────────────────────
 
     def expected_observation(self, marker_id: int):
         """
-        Calcula la observación esperada h(x) para un marcador conocido.
+        Observación esperada h(x) para un marcador conocido.
 
         Modelo polar:  z = [ρ, α]
-          ρ = distancia euclidiana robot → marcador
-          α = ángulo relativo al heading del robot, en [-π, π]
+          ρ = distancia euclidiana robot → marcador  (m)
+          α = ángulo al marcador relativo al heading del robot  (rad, [-π, π])
 
         Retorna (rho, alpha) o None si el marcador no está en el mapa.
         """
@@ -245,11 +269,9 @@ class DeadReckoning(Node):
         mx = self.aruco_map[marker_id]['x']
         my = self.aruco_map[marker_id]['y']
 
-        dx  = mx - self.x
-        dy  = my - self.y
-        rho = math.hypot(dx, dy)
-
-        # Ángulo absoluto hacia el marcador, relativo al heading del robot
+        dx    = mx - self.x
+        dy    = my - self.y
+        rho   = math.hypot(dx, dy)
         alpha = _normalize_angle(math.atan2(dy, dx) - self.yaw)
 
         return rho, alpha
@@ -258,8 +280,8 @@ class DeadReckoning(Node):
         """
         Jacobiano H_obs (2×3) de h(x) respecto al estado [x, y, θ].
 
-        ∂ρ/∂x  = -(mx-x)/ρ          ∂ρ/∂y  = -(my-y)/ρ    ∂ρ/∂θ = 0
-        ∂α/∂x  =  (my-y)/ρ²         ∂α/∂y  = -(mx-x)/ρ²   ∂α/∂θ = -1
+          ∂ρ/∂x = -(mx-x)/ρ       ∂ρ/∂y = -(my-y)/ρ     ∂ρ/∂θ =  0
+          ∂α/∂x =  (my-y)/ρ²      ∂α/∂y = -(mx-x)/ρ²    ∂α/∂θ = -1
 
         Retorna np.ndarray (2×3) o None si el marcador no está en el mapa.
         """
@@ -274,34 +296,34 @@ class DeadReckoning(Node):
         rho2 = dx**2 + dy**2
         rho  = math.sqrt(rho2)
 
-        if rho < 1e-6:          # marcador coincide con el robot → inestable
+        if rho < 1e-6:
             return None
 
-        H_obs = np.array([
-            [-dx / rho,  -dy / rho,   0.0],
-            [ dy / rho2, -dx / rho2, -1.0],
+        return np.array([
+            [-dx / rho,   -dy / rho,   0.0],
+            [ dy / rho2,  -dx / rho2, -1.0],
         ])
 
-        return H_obs
-
-    # TODO: implementar aruco_cb con el paso de corrección EKF
+    # TODO: implementar _aruco_cb con el paso de corrección EKF
     #
-    # def aruco_cb(self, msg: PoseArray):
+    # def _aruco_cb(self, msg: PoseArray):
     #     """
     #     Corrección EKF usando detecciones de ArUco.
+    #     msg.poses está indexado por marker_id (ver camera_node.py).
     #
-    #     Por cada marcador detectado en msg.poses (indexado por su id):
-    #       1. Obtener la observación real z = [rho_medido, alpha_medido]
-    #          a partir de la pose en el frame de la cámara.
-    #       2. h_x, H_obs = expected_observation(id), observation_jacobian(id)
-    #       3. Ruido de observación R (2×2), parámetro del nodo.
-    #       4. S   = H_obs @ self.sigma @ H_obs.T + R
-    #       5. K   = self.sigma @ H_obs.T @ np.linalg.inv(S)
-    #       6. inn = z - h_x      (innovación, normalizar alpha)
-    #       7. dx  = K @ inn
-    #       8. self.x   += dx[0]
-    #          self.y   += dx[1]
-    #          self.yaw  = _normalize_angle(self.yaw + dx[2])
+    #     Por cada marcador detectado:
+    #       1. Extraer z = [rho_medido, alpha_medido] de la pose en cámara.
+    #       2. h_exp = expected_observation(mid)   → (rho_esp, alpha_esp)
+    #          H_obs = observation_jacobian(mid)   → (2×3)
+    #       3. R     = np.diag([r_dist, r_angle])  ← parámetro del nodo
+    #       4. S     = H_obs @ self.sigma @ H_obs.T + R
+    #       5. K     = self.sigma @ H_obs.T @ np.linalg.inv(S)
+    #       6. inn   = np.array([z[0]-h_exp[0],
+    #                            _normalize_angle(z[1]-h_exp[1])])
+    #       7. delta = K @ inn
+    #       8. self.x   += delta[0]
+    #          self.y   += delta[1]
+    #          self.yaw  = _normalize_angle(self.yaw + delta[2])
     #       9. self.sigma = (np.eye(3) - K @ H_obs) @ self.sigma
     #     """
     #     pass
@@ -311,7 +333,7 @@ class DeadReckoning(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = DeadReckoning()
+    node = LocalisationNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
