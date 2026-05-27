@@ -1,0 +1,22 @@
+# ── Marcadores ────────────────────────────────────────────────────────────────
+
+aruco_map:
+  marker_0:
+    x:   -3.90
+    y:    2.50
+    yaw:  0.0        # mira hacia +X
+
+  marker_1:
+    x:   -2.50
+    y:   -1.30
+    yaw:  1.5708     # mira hacia +Y
+
+  marker_2:
+    x:    0.70
+    y:   -1.00
+    yaw:  3.141593   # mira hacia -X
+
+  marker_3:
+    x:    2.50
+    y:    1.10
+    yaw: -1.5708     # mira hacia -Y

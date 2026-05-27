@@ -65,3 +65,11 @@ bug2_node:
     wall_angular_speed: 0.60  # rad/s — velocidad máxima de giro
     kp_wall:            1.20  # ganancia P: wall_error → angular_z
     mline_tolerance:    0.10
+
+# ── Cámara / ArUco ───────────────────────────────────────────────────────────
+camera_node:
+  ros__parameters:
+    aruco_dict:    'DICT_4X4_250'
+    marker_size:   0.15       # m — tamaño del lado del marcador en el mundo
+    camera_frame:  'camera_link_optical'
+    publish_debug: true

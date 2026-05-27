@@ -78,6 +78,28 @@
       <pose>2.50 1.10 0.12 0 0 -1.5708</pose>
     </include>
 
+    <!-- Goal Markers -->
+    <include>
+      <name>goal_1</name>
+      <uri>model://goal_marker_5</uri>
+      <pose>-3 2.55 0.01 0 0 0</pose>
+    </include>
+    <include>
+      <name>goal_2</name>
+      <uri>model://goal_marker_5</uri>
+      <pose>-2.50 -0.60 0.01 0 0 0</pose>
+    </include>
+    <include>
+      <name>goal_3</name>
+      <uri>model://goal_marker_5</uri>
+      <pose>0.30 -1 0.01 0 0 0</pose>
+    </include>
+    <include>
+      <name>goal_4</name>
+      <uri>model://goal_marker_5</uri>
+      <pose>2.55 0.15 0.01 0 0 0</pose>
+    </include>
+
     <gui fullscreen='0'>
       <camera name='user_camera'>
         <pose>-8.0 -8.0 10.0 0 0.785 0.785</pose>

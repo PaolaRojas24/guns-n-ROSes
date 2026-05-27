@@ -73,7 +73,7 @@ class CameraNode(Node):
 
         # ── Parámetros declarados ─────────────────────────────────────────────
         self.declare_parameter('aruco_dict',    'DICT_4X4_250')
-        self.declare_parameter('marker_size',   0.09)          # metros
+        self.declare_parameter('marker_size',   0.025)          # metros
         self.declare_parameter('camera_frame',  'camera_link_optical')
         self.declare_parameter('publish_debug', True)
 

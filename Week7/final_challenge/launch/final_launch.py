@@ -27,10 +27,10 @@ def launch_setup(context, *args, **kwargs):
     goal_x, goal_y = WORLD_GOALS.get(world_name, (2.00, -2.00))
 
     pkg_gazebo  = get_package_share_directory('puzzlebot_gazebo')
-    pkg_bug_sim = get_package_share_directory('bug_sim')
-    params_file = os.path.join(pkg_bug_sim, 'config', 'params.yaml')
+    pkg_final_challenge = get_package_share_directory('final_challenge')
+    params_file = os.path.join(pkg_final_challenge, 'config', 'params.yaml')
 
-    urdf_path = os.path.join(pkg_bug_sim, 'urdf', 'puzzlebot.urdf')
+    urdf_path = os.path.join(pkg_final_challenge, 'urdf', 'puzzlebot.urdf')
     with open(urdf_path, 'r') as f:
         robot_desc = f.read()
 
@@ -67,7 +67,7 @@ def launch_setup(context, *args, **kwargs):
 
     # ── localisation_node ─────────────────────────────────────────────────────
     localisation_node = Node(
-        package='bug_sim',
+        package='final_challenge',
         executable='localisation',
         name='localisation_node',
         parameters=[params_file, {'use_sim_time': True}],
@@ -80,7 +80,7 @@ def launch_setup(context, *args, **kwargs):
 
     # ── joint_state_pub ───────────────────────────────────────────────────────
     joint_state_pub = Node(
-        package='bug_sim',
+        package='final_challenge',
         executable='joint_state_pub',
         name='joint_state_publisher_node',
         parameters=[{'use_sim_time': True}],
@@ -98,7 +98,7 @@ def launch_setup(context, *args, **kwargs):
 
     # ── coords_transform ──────────────────────────────────────────────────────
     coords_transform_node = Node(
-        package='bug_sim',
+        package='final_challenge',
         executable='coords_transform',
         name='coords_transform_node',
         parameters=[{'use_sim_time': True}],
@@ -107,7 +107,7 @@ def launch_setup(context, *args, **kwargs):
 
     # ── control_node (PID) ────────────────────────────────────────────────────
     control_node = Node(
-        package='bug_sim',
+        package='final_challenge',
         executable='PointStabilisation_node',
         name='control_node',
         parameters=[params_file, {'use_sim_time': True}],
@@ -119,7 +119,7 @@ def launch_setup(context, *args, **kwargs):
 
     # ── bug0_node ─────────────────────────────────────────────────────────────
     bug0_node = Node(
-        package='bug_sim',
+        package='final_challenge',
         executable='bug0_node',
         name='bug0_node',
         parameters=[
