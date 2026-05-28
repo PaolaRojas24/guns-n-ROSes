@@ -82,55 +82,12 @@ def launch_setup(context, *args, **kwargs):
         output='screen',
     )
 
-    # ── joint_state_pub ───────────────────────────────────────────────────────
-    joint_state_pub = Node(
-        package='final_challenge',
-        executable='joint_state_pub',
-        name='joint_state_publisher_node',
-        parameters=[{'use_sim_time': True}],
-        output='screen',
-    )
-
-    # ── robot_state_publisher ─────────────────────────────────────────────────
-    robot_state_pub = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        name='robot_state_publisher',
-        parameters=[{'robot_description': robot_desc, 'use_sim_time': True}],
-        output='screen',
-    )
-
-    # ── coords_transform ──────────────────────────────────────────────────────
-    coords_transform_node = Node(
-        package='final_challenge',
-        executable='coords_transform',
-        name='coords_transform_node',
-        parameters=[{'use_sim_time': True}],
-        output='screen',
-    )
-
     # ── control_node (PID) ────────────────────────────────────────────────────
     control_node = Node(
         package='final_challenge',
         executable='PointStabilisation_node',
         name='control_node',
         parameters=[params_file, {'use_sim_time': True}],
-        remappings=[
-            ('odom', '/ground_truth'),
-        ],
-        output='screen',
-    )
-
-    # ── bug0_node ─────────────────────────────────────────────────────────────
-    bug0_node = Node(
-        package='final_challenge',
-        executable='bug0_node',
-        name='bug0_node',
-        parameters=[params_file, config_file],
-        remappings=[
-            ('odom',     '/ground_truth'),
-            ('setpoint', 'setpoint'), 
-        ],
         output='screen',
     )
 
@@ -140,10 +97,6 @@ def launch_setup(context, *args, **kwargs):
         executable='bug2_node',
         name='bug2_node',
         parameters=[params_file, config_file],
-        remappings=[
-            ('odom',     '/ground_truth'),
-            ('setpoint', 'setpoint'), 
-        ],
         output='screen',
     )
 
@@ -210,13 +163,9 @@ def launch_setup(context, *args, **kwargs):
         gazebo_launch,
         robot_launch,
         localisation_node,
-        #joint_state_pub,
-        #robot_state_pub,
-        #coords_transform_node,
         control_node,
         camera_node,
         image_node,
-        #bug0_node,
         bug2_node,
         #graph_node,
         #tree_node,

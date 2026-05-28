@@ -23,6 +23,7 @@ localisation_node:
     kr:           0.014   # ruido rueda derecha
     kl:           0.014   # ruido rueda izquierda
 
+
 # ── Bug 0 ────────────────────────────────────────────────────────────────────
 bug0_node:
   ros__parameters:
@@ -31,19 +32,19 @@ bug0_node:
     goal_y: 1.20
 
     # Detección de obstáculos
-    obstacle_threshold: 0.40   # m  — aumentar si el robot reacciona tarde
+    obstacle_threshold: 0.20   # m  — aumentar si el robot reacciona tarde
     goal_tolerance:     0.10   # m  — radio de llegada al goal final
 
     # Sectores angulares del LiDAR
-    forward_fov_deg:  60.0    # ° — sector frontal (±20°) para detección
+    forward_fov_deg:  80.0    # ° — sector frontal (±20°) para detección
     side_fov_deg:     30.0    # ° — sector derecho (±15°) para medir pared
 
     # Seguimiento de pared (WALL_FOLLOW con cmd_vel directo)
-    wall_dist_target:   0.35  # m   — distancia ideal a la pared derecha
+    wall_dist_target:   0.10  # m   — distancia ideal a la pared derecha
     wall_linear_speed:  0.12  # m/s — velocidad de avance al bordear
     wall_angular_speed: 0.60  # rad/s — velocidad máxima de giro
     kp_wall:            1.20  # ganancia P: wall_error → angular_z
-
+    
 # ── Bug 2 ────────────────────────────────────────────────────────────────────
 bug2_node:
   ros__parameters:
@@ -52,7 +53,7 @@ bug2_node:
     goal_y: 1.20
 
     # Detección de obstáculos
-    obstacle_threshold: 0.40   # m  — aumentar si el robot reacciona tarde
+    obstacle_threshold: 0.20   # m  — aumentar si el robot reacciona tarde
     goal_tolerance:     0.10   # m  — radio de llegada al goal final
 
     # Sectores angulares del LiDAR
@@ -60,7 +61,7 @@ bug2_node:
     side_fov_deg:     30.0    # ° — sector derecho (±15°) para medir pared
 
     # Seguimiento de pared (WALL_FOLLOW con cmd_vel directo)
-    wall_dist_target:   0.35  # m   — distancia ideal a la pared derecha
+    wall_dist_target:   0.10  # m   — distancia ideal a la pared derecha
     wall_linear_speed:  0.12  # m/s — velocidad de avance al bordear
     wall_angular_speed: 0.60  # rad/s — velocidad máxima de giro
     kp_wall:            1.20  # ganancia P: wall_error → angular_z
