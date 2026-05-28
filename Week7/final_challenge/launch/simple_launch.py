@@ -175,7 +175,7 @@ def launch_setup(context, *args, **kwargs):
     )
 
     rviz_config = os.path.join(
-        get_package_share_directory('elipse_sim'),
+        get_package_share_directory('final_challenge'),
         'rviz',
         'puzzlebot_rviz.rviz'
     )
@@ -184,6 +184,26 @@ def launch_setup(context, *args, **kwargs):
         package='rviz2',
         executable='rviz2',
         arguments=['-d', rviz_config]
+    )
+
+    static_transform_node = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments = [
+            '--x', '0', '--y', '0', '--z', '0.0',
+            '--yaw', '0.0', '--pitch', '0', '--roll', '0.0',
+            '--frame-id', 'world', '--child-frame-id', 'map'
+        ]
+    )
+
+    static_transform_node_1 = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments = [
+            '--x', '2', '--y', '1', '--z', '0.0',
+            '--yaw', '0.0', '--pitch', '0', '--roll', '0.0',
+            '--frame-id', 'map', '--child-frame-id', 'odom'
+        ]
     )
 
     return [
@@ -200,7 +220,9 @@ def launch_setup(context, *args, **kwargs):
         bug2_node,
         #graph_node,
         #tree_node,
-        #rviz_node,
+        rviz_node,
+        static_transform_node,
+        static_transform_node_1,
     ]
 
 
