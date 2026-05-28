@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import rclpy
+from geometry_msgs.msg import PoseArray
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from std_msgs.msg import Float32
@@ -33,10 +34,17 @@ class LocalisationNode(Node):
         self.declare_parameter('kr',           0.014)
         self.declare_parameter('kl',           0.014)
 
+        # Varianza de la observación ArUco: [dist² (m²), angle² (rad²)]
+        self.declare_parameter('aruco_r_dist',  0.0025)   # ≈5cm std
+        self.declare_parameter('aruco_r_angle', 0.0025)   # ≈3° std
+
         self.r  = self.get_parameter('wheel_radius').value
         self.L  = self.get_parameter('wheel_base').value
         self.kr = self.get_parameter('kr').value
         self.kl = self.get_parameter('kl').value
+
+        self.r_dist  = self.get_parameter('aruco_r_dist').value
+        self.r_angle = self.get_parameter('aruco_r_angle').value
 
         # ── Mapa de marcadores desde parámetros ROS 2 ─────────────────────────
         # Cada marcador expone tres parámetros:
@@ -71,11 +79,8 @@ class LocalisationNode(Node):
         # ── Subscribers ───────────────────────────────────────────────────────
         self.create_subscription(Float32, 'wr', self._wr_cb, 10)
         self.create_subscription(Float32, 'wl', self._wl_cb, 10)
-
-        # TODO (EKF corrección): descomentar cuando camera_node esté integrado
-        # from geometry_msgs.msg import PoseArray
-        # self.create_subscription(PoseArray, '/aruco/detections',
-        #                          self._aruco_cb, 10)
+        self.create_subscription(PoseArray, '/aruco/detections',
+                                 self._aruco_cb, 10)
 
         # ── Timer de integración a 50 Hz ──────────────────────────────────────
         self.create_timer(0.02, self._update)
@@ -156,8 +161,8 @@ class LocalisationNode(Node):
         ])
 
         # ── Integración de la pose ────────────────────────────────────────────
-        self.x   += v * math.cos(self.yaw + math.pi / 2.0) * dt
-        self.y   += v * math.sin(self.yaw + math.pi / 2.0) * dt
+        self.x   += v * math.cos(self.yaw) * dt
+        self.y   += v * math.sin(self.yaw) * dt
         self.yaw  = _normalize_angle(self.yaw + w * dt)
 
         # ── Jacobiano de velocidades ∇w (3×2) ────────────────────────────────
@@ -186,10 +191,8 @@ class LocalisationNode(Node):
     # ── Publicación ───────────────────────────────────────────────────────────
 
     def _publish_odom(self, stamp, v: float, w: float):
-        # Cuaternión (corrección de orientación del URDF)
-        yaw_q = self.yaw + math.pi / 2.0
-        qz    = math.sin(yaw_q / 2.0)
-        qw    = math.cos(yaw_q / 2.0)
+        qz = math.sin(self.yaw / 2.0)
+        qw = math.cos(self.yaw / 2.0)
 
         # Mapeo Σ 3×3 → covarianza 6×6 ROS (orden: x y z roll pitch yaw)
         cov36 = [0.0] * 36
@@ -275,29 +278,62 @@ class LocalisationNode(Node):
             [ dy / rho2,  -dx / rho2, -1.0],
         ])
 
-    # TODO: implementar _aruco_cb con el paso de corrección EKF
-    #
-    # def _aruco_cb(self, msg: PoseArray):
-    #     """
-    #     Corrección EKF usando detecciones de ArUco.
-    #     msg.poses está indexado por marker_id (ver camera_node.py).
-    #
-    #     Por cada marcador detectado:
-    #       1. Extraer z = [rho_medido, alpha_medido] de la pose en cámara.
-    #       2. h_exp = expected_observation(mid)   → (rho_esp, alpha_esp)
-    #          H_obs = observation_jacobian(mid)   → (2×3)
-    #       3. R     = np.diag([r_dist, r_angle])  ← parámetro del nodo
-    #       4. S     = H_obs @ self.sigma @ H_obs.T + R
-    #       5. K     = self.sigma @ H_obs.T @ np.linalg.inv(S)
-    #       6. inn   = np.array([z[0]-h_exp[0],
-    #                            _normalize_angle(z[1]-h_exp[1])])
-    #       7. delta = K @ inn
-    #       8. self.x   += delta[0]
-    #          self.y   += delta[1]
-    #          self.yaw  = _normalize_angle(self.yaw + delta[2])
-    #       9. self.sigma = (np.eye(3) - K @ H_obs) @ self.sigma
-    #     """
-    #     pass
+    # ── Callback ArUco — paso de corrección EKF ──────────────────────────────
+
+    def _aruco_cb(self, msg: PoseArray):
+        """
+        Corrección EKF por cada marcador detectado.
+
+        msg.poses está indexado por marker_id (slots 0..3). Una pose con
+        position.x == NaN significa "no detectado" — se ignora.
+
+        La pose viene en el frame óptico de la cámara:
+          x = derecha, y = abajo, z = adelante
+        Se proyecta al plano del suelo (xz) para obtener (rho, alpha)
+        relativos al robot. Se asume que la cámara está centrada en
+        base_footprint (offset pequeño, absorbido en R).
+        """
+        R = np.diag([self.r_dist, self.r_angle])
+
+        for mid in self._MARKER_IDS:
+            if mid >= len(msg.poses):
+                continue
+
+            pose = msg.poses[mid]
+            if math.isnan(pose.position.x):
+                continue
+            if mid not in self.aruco_map:
+                continue
+
+            cam_x = pose.position.x      # derecha (+) / izquierda (−)
+            cam_z = pose.position.z      # adelante
+
+            rho_meas   = math.hypot(cam_x, cam_z)
+            alpha_meas = math.atan2(-cam_x, cam_z)   # +α = a la izquierda
+
+            h_exp = self.expected_observation(mid)
+            H_obs = self.observation_jacobian(mid)
+            if h_exp is None or H_obs is None:
+                continue
+            rho_exp, alpha_exp = h_exp
+
+            S = H_obs @ self.sigma @ H_obs.T + R
+            try:
+                K = self.sigma @ H_obs.T @ np.linalg.inv(S)
+            except np.linalg.LinAlgError:
+                continue
+
+            inn = np.array([
+                rho_meas - rho_exp,
+                _normalize_angle(alpha_meas - alpha_exp),
+            ])
+
+            delta = K @ inn
+            self.x   += delta[0]
+            self.y   += delta[1]
+            self.yaw  = _normalize_angle(self.yaw + delta[2])
+
+            self.sigma = (np.eye(3) - K @ H_obs) @ self.sigma
 
 
 # ══════════════════════════════════════════════════════════════════════════════

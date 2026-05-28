@@ -72,15 +72,16 @@ class CameraNode(Node):
 
         aruco_dict_id = dict_map.get(dict_name, aruco.DICT_4X4_250)
 
-        # NUEVA API
+        # Compatibilidad con OpenCV viejo (<4.7) y nuevo (>=4.7)
         self.dictionary = aruco.getPredefinedDictionary(aruco_dict_id)
-        self.detector_params = aruco.DetectorParameters()
-
-        # NUEVO detector
-        self.detector = aruco.ArucoDetector(
-            self.dictionary,
-            self.detector_params
-        )
+        if hasattr(aruco, 'ArucoDetector'):
+            self.detector_params = aruco.DetectorParameters()
+            self.detector = aruco.ArucoDetector(self.dictionary, self.detector_params)
+            self._use_new_api = True
+        else:
+            self.detector_params = aruco.DetectorParameters_create()
+            self.detector = None
+            self._use_new_api = False
 
         # ── Parámetros de cámara (se llenan con camera_info) ──────────────────
         self.camera_matrix = None
@@ -168,12 +169,25 @@ class CameraNode(Node):
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # ── Detección ─────────────────────────────────────────────────────────
-        corners, ids, rejected = self.detector.detectMarkers(gray)
+        if self._use_new_api:
+            corners, ids, rejected = self.detector.detectMarkers(gray)
+        else:
+            corners, ids, rejected = aruco.detectMarkers(
+                gray, self.dictionary, parameters=self.detector_params
+            )
 
         pose_array = PoseArray()
         pose_array.header = Header()
         pose_array.header.stamp    = msg.header.stamp
         pose_array.header.frame_id = self.camera_frame
+
+        # Slots fijos indexados por marker_id (0..3). NaN = no detectado.
+        # localisation_node usa el índice para identificar el marcador.
+        pose_array.poses = [Pose() for _ in range(4)]
+        for p in pose_array.poses:
+            p.position.x = float('nan')
+            p.position.y = float('nan')
+            p.position.z = float('nan')
 
         debug_frame = frame.copy() if self.publish_debug else None
 
@@ -210,18 +224,19 @@ class CameraNode(Node):
                 rvec = rvec.flatten()
                 tvec = tvec.flatten()
 
-                # ── Pose en PoseArray ─────────────────────────────────────────
-                pose = Pose()
-                pose.position.x = float(tvec[0])
-                pose.position.y = float(tvec[1])
-                pose.position.z = float(tvec[2])
+                # ── Pose en PoseArray (indexada por marker_id) ────────────────
+                mid = int(marker_id)
+                if 0 <= mid < len(pose_array.poses):
+                    pose = pose_array.poses[mid]
+                    pose.position.x = float(tvec[0])
+                    pose.position.y = float(tvec[1])
+                    pose.position.z = float(tvec[2])
 
-                qx, qy, qz, qw = rotation_vector_to_quaternion(rvec)
-                pose.orientation.x = qx
-                pose.orientation.y = qy
-                pose.orientation.z = qz
-                pose.orientation.w = qw
-                pose_array.poses.append(pose)
+                    qx, qy, qz, qw = rotation_vector_to_quaternion(rvec)
+                    pose.orientation.x = qx
+                    pose.orientation.y = qy
+                    pose.orientation.z = qz
+                    pose.orientation.w = qw
 
                 # ── TF: marker_<id> en el frame de la cámara ─────────────────
                 self._publish_marker_tf(

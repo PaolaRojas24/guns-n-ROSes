@@ -19,7 +19,7 @@ control_node:
 localisation_node:
   ros__parameters:
     wheel_radius: 0.05    # m
-    wheel_base:   0.108   # m
+    wheel_base:   0.19    # m  (jetson_lidar_ed real)
     kr:           0.014   # ruido rueda derecha
     kl:           0.014   # ruido rueda izquierda
 
