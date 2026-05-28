@@ -1,33 +1,4 @@
-"""
-localisation.py
-===============
-Nodo ROS 2 de localización para el Puzzlebot.
-
-Fase actual:  Dead reckoning + propagación de covarianza (EKF — predicción).
-Próxima fase: Corrección EKF con observaciones ArUco (ver TODO marcados).
-
-El mapa de marcadores se carga desde los parámetros ROS 2 inyectados por el
-launch file (maze.yaml / maze2.yaml / maze3.yaml):
-
-    localisation_node:
-      ros__parameters:
-        aruco_map:
-          marker_0:
-            x:   -3.90
-            y:    2.50
-            yaw:  0.0
-          ...
-
-Suscripciones:
-  /VelocityEncR  (std_msgs/Float32)  — remapeado a 'wr'
-  /VelocityEncL  (std_msgs/Float32)  — remapeado a 'wl'
-
-Publicaciones:
-  /odom  (nav_msgs/Odometry)  — pose estimada con covarianza 6×6
-"""
-
 import math
-
 import numpy as np
 import rclpy
 from nav_msgs.msg import Odometry
@@ -175,7 +146,7 @@ class LocalisationNode(Node):
 
         # ── Cinemática diferencial ────────────────────────────────────────────
         v = self.r * (self.wr + self.wl) / 2.0
-        w = self.r * (self.wl - self.wr) / self.L
+        w = self.r * (self.wr - self.wl) / self.L
 
         # ── Jacobiano H evaluado ANTES de integrar (yaw actual) ───────────────
         H = np.array([

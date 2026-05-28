@@ -25,8 +25,8 @@ class CoordsTransformNode(Node):
 
         # ── Header ────────────────────────────────────────────────────────────
         t.header.stamp    = msg.header.stamp
-        t.header.frame_id = f'/odom'
-        t.child_frame_id  = f'/base_footprint'
+        t.header.frame_id = f'odom'
+        t.child_frame_id  = f'base_footprint'
 
         # ── Position ──────────────────────────────────────────────────────────
         t.transform.translation.x = msg.pose.pose.position.x

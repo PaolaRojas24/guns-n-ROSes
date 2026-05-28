@@ -200,7 +200,7 @@ def launch_setup(context, *args, **kwargs):
         package='tf2_ros',
         executable='static_transform_publisher',
         arguments = [
-            '--x', '2', '--y', '1', '--z', '0.0',
+            '--x', '0', '--y', '0', '--z', '0.0',
             '--yaw', '0.0', '--pitch', '0', '--roll', '0.0',
             '--frame-id', 'map', '--child-frame-id', 'odom'
         ]
@@ -210,9 +210,9 @@ def launch_setup(context, *args, **kwargs):
         gazebo_launch,
         robot_launch,
         localisation_node,
-        joint_state_pub,
-        robot_state_pub,
-        coords_transform_node,
+        #joint_state_pub,
+        #robot_state_pub,
+        #coords_transform_node,
         control_node,
         camera_node,
         image_node,
