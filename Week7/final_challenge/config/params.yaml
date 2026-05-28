@@ -24,48 +24,41 @@ localisation_node:
     kl:           0.014   # ruido rueda izquierda
 
 
-# ── Bug 0 ────────────────────────────────────────────────────────────────────
-bug0_node:
+# ── Tangent Bug ──────────────────────────────────────────────────────────────
+tangent_bug_node:
   ros__parameters:
-    # Goal — sobreescrito por el launch según el mundo
-    goal_x: 1.45
-    goal_y: 1.20
-
-    # Detección de obstáculos
-    obstacle_threshold: 0.20   # m  — aumentar si el robot reacciona tarde
-    goal_tolerance:     0.10   # m  — radio de llegada al goal final
+    # Detección de obstáculos / llegada al waypoint
+    obstacle_threshold: 0.20   # m  — frente bloqueado para WALL_FOLLOW
+    goal_tolerance:     0.10   # m  — radio de llegada a cada waypoint
 
     # Sectores angulares del LiDAR
-    forward_fov_deg:  80.0    # ° — sector frontal (±20°) para detección
-    side_fov_deg:     30.0    # ° — sector derecho (±15°) para medir pared
+    forward_fov_deg:    80.0   # ° — sector frontal para detección
+    side_fov_deg:       30.0   # ° — sector lateral para wall-follow
 
-    # Seguimiento de pared (WALL_FOLLOW con cmd_vel directo)
-    wall_dist_target:   0.10  # m   — distancia ideal a la pared derecha
-    wall_linear_speed:  0.12  # m/s — velocidad de avance al bordear
-    wall_angular_speed: 0.60  # rad/s — velocidad máxima de giro
-    kp_wall:            1.20  # ganancia P: wall_error → angular_z
-    
-# ── Bug 2 ────────────────────────────────────────────────────────────────────
-bug2_node:
-  ros__parameters:
-    # Goal — sobreescrito por el launch según el mundo
-    goal_x: 1.45
-    goal_y: 1.20
+    # Wall-following (BOUNDARY_FOLLOW, cmd_vel directo)
+    wall_dist_target:   0.10   # m   — distancia objetivo a la pared seguida
+    wall_linear_speed:  0.12   # m/s — velocidad al bordear
+    wall_angular_speed: 0.60   # rad/s — velocidad máx. de giro
+    kp_wall:            1.20   # ganancia P: wall_error → angular_z
 
-    # Detección de obstáculos
-    obstacle_threshold: 0.20   # m  — aumentar si el robot reacciona tarde
-    goal_tolerance:     0.10   # m  — radio de llegada al goal final
+    # ── Específicos de Tangent Bug ──────────────────────────────────────────
+    # Detección de endpoints O_i (discontinuidades del LiDAR)
+    discontinuity_threshold: 0.30   # m   — salto mínimo entre rayos
+    sensor_range:            3.5    # m   — alcance útil del LiDAR
+    endpoint_max_angle_deg:  120.0  # °   — descarta endpoints fuera de este cono
 
-    # Sectores angulares del LiDAR
-    forward_fov_deg:  80.0    # ° — sector frontal (±20°) para detección
-    side_fov_deg:     30.0    # ° — sector derecho (±15°) para medir pared
+    # Compromiso con el endpoint (evita oscilación / spin loco al inicio)
+    endpoint_reach_thresh:   0.30   # m   — radio para renovar el target
+    endpoint_switch_hyst:    0.40   # m   — histéresis de h para cambiar de endpoint
+    setpoint_change_thresh:  0.15   # m   — Δ mínimo para reenviar setpoint al PID
 
-    # Seguimiento de pared (WALL_FOLLOW con cmd_vel directo)
-    wall_dist_target:   0.10  # m   — distancia ideal a la pared derecha
-    wall_linear_speed:  0.12  # m/s — velocidad de avance al bordear
-    wall_angular_speed: 0.60  # rad/s — velocidad máxima de giro
-    kp_wall:            1.20  # ganancia P: wall_error → angular_z
-    mline_tolerance:    0.10
+    # Mínimo local → BOUNDARY_FOLLOW
+    local_min_tolerance:     0.10   # m   — margen de mejora exigido a h(O*)
+    local_min_stall_iters:   15     # iters consecutivas sin mejora → BF
+
+    # Salida de BOUNDARY_FOLLOW
+    bf_grace_iters:          20     # iters mínimos antes de poder salir de BF
+    leave_margin:            0.05   # m   — d_reach debe ser d_followed-margin
 
 # ── Cámara / ArUco ───────────────────────────────────────────────────────────
 camera_node:

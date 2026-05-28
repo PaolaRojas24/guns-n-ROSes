@@ -91,11 +91,11 @@ def launch_setup(context, *args, **kwargs):
         output='screen',
     )
 
-    # ── bug2_node ─────────────────────────────────────────────────────────────
-    bug2_node = Node(
+    # ── tangent_bug_node ──────────────────────────────────────────────────────
+    tangent_bug_node = Node(
         package='final_challenge',
-        executable='bug2_node',
-        name='bug2_node',
+        executable='tangent_bug_node',
+        name='tangent_bug_node',
         parameters=[params_file, config_file],
         output='screen',
     )
@@ -166,7 +166,7 @@ def launch_setup(context, *args, **kwargs):
         control_node,
         camera_node,
         image_node,
-        bug2_node,
+        tangent_bug_node,
         #graph_node,
         #tree_node,
         rviz_node,
