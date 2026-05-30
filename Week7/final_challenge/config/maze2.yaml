@@ -22,7 +22,7 @@ localisation_node:
         y:    3.90
         yaw: -1.5708
 
-tangent_bug_node:
+mission_node:
   ros__parameters:
     trajectory_goals:
       goal_1:

@@ -1,20 +1,3 @@
-# ── Controlador PID de posición (point_stabilisation_control) ────────────────
-control_node:
-  ros__parameters:
-    kp_lin: 1.5
-    ki_lin: 0.5
-    kd_lin: 0.7
-
-    kp_ang: 1.75
-    ki_ang: 0.6
-    kd_ang: 1.0
-
-    dist_tolerance: 0.08
-    ang_tolerance:  0.315
-    max_linear:     0.15
-    max_angular:    0.8
-    control_rate:   20.0
-
 # ── Localización (dead reckoning con covarianzas) ────────────────────────────
 localisation_node:
   ros__parameters:
@@ -24,41 +7,53 @@ localisation_node:
     kl:           0.014   # ruido rueda izquierda
 
 
-# ── Tangent Bug ──────────────────────────────────────────────────────────────
-tangent_bug_node:
+# ── Mission (waypoints; los goals vienen del YAML del mundo) ─────────────────
+mission_node:
   ros__parameters:
-    # Detección de obstáculos / llegada al waypoint
-    obstacle_threshold: 0.20   # m  — frente bloqueado para WALL_FOLLOW
-    goal_tolerance:     0.10   # m  — radio de llegada a cada waypoint
+    start_delay_s:   5.0     # s — espera a que SLAM publique /map y los nodos conecten
+    loop_waypoints:  true    # cuando termina la lista, vuelve a empezar
 
-    # Sectores angulares del LiDAR
-    forward_fov_deg:    80.0   # ° — sector frontal para detección
-    side_fov_deg:       30.0   # ° — sector lateral para wall-follow
 
-    # Wall-following (BOUNDARY_FOLLOW, cmd_vel directo)
-    wall_dist_target:   0.10   # m   — distancia objetivo a la pared seguida
-    wall_linear_speed:  0.12   # m/s — velocidad al bordear
-    wall_angular_speed: 0.60   # rad/s — velocidad máx. de giro
-    kp_wall:            1.20   # ganancia P: wall_error → angular_z
+# ── Planner global: A* sobre el OccupancyGrid de slam_toolbox ────────────────
+planner_node:
+  ros__parameters:
+    robot_radius:         0.25    # m — radio para inflar obstáculos en el grid
+    replan_period_s:      1.2     # s — re-plan periódico (también re-plana al recibir goal)
+    map_frame:            map
+    robot_frame:          base_footprint
+    unknown_is_obstacle:  false   # si true, celdas no exploradas se tratan como obstáculo
+    path_simplify:        false    # reducción line-of-sight de waypoints
+    allow_diagonal:       true    # A* 8-conectado
+    # Limpieza en vivo con el LiDAR — anula paredes fantasma de SLAM
+    use_live_scan_clearing: true  # raytrace del scan actual borra obstáculos viejos
+    scan_topic:             /scan
+    clearing_max_range:     5.0   # m — máxima distancia a la que limpia un rayo
 
-    # ── Específicos de Tangent Bug ──────────────────────────────────────────
-    # Detección de endpoints O_i (discontinuidades del LiDAR)
-    discontinuity_threshold: 0.30   # m   — salto mínimo entre rayos
-    sensor_range:            3.5    # m   — alcance útil del LiDAR
-    endpoint_max_angle_deg:  120.0  # °   — descarta endpoints fuera de este cono
 
-    # Compromiso con el endpoint (evita oscilación / spin loco al inicio)
-    endpoint_reach_thresh:   0.30   # m   — radio para renovar el target
-    endpoint_switch_hyst:    0.40   # m   — histéresis de h para cambiar de endpoint
-    setpoint_change_thresh:  0.15   # m   — Δ mínimo para reenviar setpoint al PID
+# ── Pure Pursuit ─────────────────────────────────────────────────────────────
+controller_node:
+  ros__parameters:
+    lookahead_distance:     0.40   # m — distancia base de mirada adelante
+    lookahead_gain:         0.30   # adapta con la velocidad: ld = base + gain·|v|
+    max_linear:             0.15   # m/s
+    max_angular:            0.80   # rad/s
+    kp_heading:             1.5    # control proporcional al girar en sitio
+    rotate_in_place_thresh: 0.70   # rad — si |α| > esto, gira sin avanzar
+    goal_tolerance:         0.15   # m — radio de llegada al waypoint
+    control_rate_hz:        20.0
+    map_frame:              map
+    robot_frame:            base_footprint
 
-    # Mínimo local → BOUNDARY_FOLLOW
-    local_min_tolerance:     0.10   # m   — margen de mejora exigido a h(O*)
-    local_min_stall_iters:   15     # iters consecutivas sin mejora → BF
 
-    # Salida de BOUNDARY_FOLLOW
-    bf_grace_iters:          20     # iters mínimos antes de poder salir de BF
-    leave_margin:            0.05   # m   — d_reach debe ser d_followed-margin
+# ── SLAM Resetter: limpia el mapa cuando ve un ArUco o periódicamente ───────
+slam_resetter:
+  ros__parameters:
+    reset_on_aruco:          true   # al detectar ArUco, llama /slam_toolbox/reset
+    periodic_reset_period_s: 0.0    # >0 = reset cada N s adicional al ArUco; 0 = desactivado
+    min_reset_interval_s:    5.0    # debounce: nunca dos resets en menos de esto
+    initial_grace_s:         8.0    # no resetear durante los primeros N s (warm-up SLAM)
+    reset_service:           /slam_toolbox/clear            # slam_toolbox/srv/Clear — limpia el mapper
+
 
 # ── Cámara / ArUco ───────────────────────────────────────────────────────────
 camera_node:

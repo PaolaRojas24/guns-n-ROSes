@@ -10,11 +10,10 @@ from launch.actions import (
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from launch.actions import ExecuteProcess
 
 
 WORLD_CONFIGS = {
-    'maze.world': 'maze.yaml',
+    'maze.world':  'maze.yaml',
     'maze2.world': 'maze2.yaml',
     'maze3.world': 'maze3.yaml',
 }
@@ -26,17 +25,12 @@ def launch_setup(context, *args, **kwargs):
     world_name = LaunchConfiguration('world').perform(context)
     pkg_final_challenge = get_package_share_directory('final_challenge')
     config_file = os.path.join(
-        pkg_final_challenge,
-        'config',
-        WORLD_CONFIGS[world_name]
+        pkg_final_challenge, 'config', WORLD_CONFIGS[world_name]
     )
 
     pkg_gazebo  = get_package_share_directory('puzzlebot_gazebo')
     params_file = os.path.join(pkg_final_challenge, 'config', 'params.yaml')
-
-    urdf_path = os.path.join(pkg_final_challenge, 'urdf', 'puzzlebot.urdf')
-    with open(urdf_path, 'r') as f:
-        robot_desc = f.read()
+    slam_config = os.path.join(pkg_final_challenge, 'config', 'slam_toolbox.yaml')
 
     # ── Gazebo world ──────────────────────────────────────────────────────────
     gazebo_launch = IncludeLaunchDescription(
@@ -69,7 +63,7 @@ def launch_setup(context, *args, **kwargs):
         }.items()
     )
 
-    # ── localisation_node ─────────────────────────────────────────────────────
+    # ── Odometría dead-reckoning (odom → base_footprint) ──────────────────────
     localisation_node = Node(
         package='final_challenge',
         executable='localisation',
@@ -82,43 +76,43 @@ def launch_setup(context, *args, **kwargs):
         output='screen',
     )
 
-    # ── control_node (PID) ────────────────────────────────────────────────────
-    control_node = Node(
+    # ── SLAM Toolbox (publica /map y tf map → odom) ───────────────────────────
+    slam_node = Node(
+        package='slam_toolbox',
+        executable='async_slam_toolbox_node',
+        name='slam_toolbox',
+        parameters=[slam_config],
+        output='screen',
+    )
+
+    # ── Misión: secuencia waypoints ───────────────────────────────────────────
+    mission_node = Node(
         package='final_challenge',
-        executable='PointStabilisation_node',
-        name='control_node',
+        executable='mission_node',
+        name='mission_node',
+        parameters=[params_file, config_file, {'use_sim_time': True}],
+        output='screen',
+    )
+
+    # ── Planner global: A* sobre el OccupancyGrid de SLAM ─────────────────────
+    planner_node = Node(
+        package='final_challenge',
+        executable='planner_node',
+        name='planner_node',
         parameters=[params_file, {'use_sim_time': True}],
         output='screen',
     )
 
-    # ── tangent_bug_node ──────────────────────────────────────────────────────
-    tangent_bug_node = Node(
+    # ── Controlador local: Pure Pursuit ───────────────────────────────────────
+    controller_node = Node(
         package='final_challenge',
-        executable='tangent_bug_node',
-        name='tangent_bug_node',
-        parameters=[params_file, config_file],
+        executable='controller_node',
+        name='controller_node',
+        parameters=[params_file, {'use_sim_time': True}],
         output='screen',
     )
 
-    tree_node = Node(
-        package='rqt_gui',
-        executable='rqt_gui',
-        name='rqt_tf_tree',
-        output='screen',
-        arguments=['--standalone', 'rqt_tf_tree']
-    )
-
-    graph_node = ExecuteProcess(
-        cmd=['ros2', 'run', 'rqt_graph', 'rqt_graph'],
-        output='screen'
-    )
-
-    image_node = ExecuteProcess(
-        cmd=['ros2', 'run', 'rqt_image_view', 'rqt_image_view'],
-        output='screen'
-    )
-
-    # ── camera_node (detección ArUco) ─────────────────────────────────────────
+    # ── Cámara ArUco ──────────────────────────────────────────────────────────
     camera_node = Node(
         package='final_challenge',
         executable='camera_node',
@@ -127,51 +121,49 @@ def launch_setup(context, *args, **kwargs):
         output='screen',
     )
 
-    rviz_config = os.path.join(
-        get_package_share_directory('final_challenge'),
-        'rviz',
-        'puzzlebot_rviz.rviz'
+    # ── SLAM Resetter: limpia el mapa periódicamente / al ver ArUco ───────────
+    slam_resetter = Node(
+        package='final_challenge',
+        executable='slam_resetter',
+        name='slam_resetter',
+        parameters=[params_file, {'use_sim_time': True}],
+        output='screen',
     )
 
-    rviz_node = Node(name='rviz',
+    # ── RViz ──────────────────────────────────────────────────────────────────
+    rviz_config = os.path.join(
+        pkg_final_challenge, 'rviz', 'puzzlebot_rviz.rviz'
+    )
+    rviz_node = Node(
+        name='rviz',
         package='rviz2',
         executable='rviz2',
-        arguments=['-d', rviz_config]
+        arguments=['-d', rviz_config],
     )
 
-    static_transform_node = Node(
+    # ── TF estática world → map. (map → odom lo publica SLAM) ─────────────────
+    static_world_map = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        arguments = [
+        arguments=[
             '--x', '0', '--y', '0', '--z', '0.0',
             '--yaw', '0.0', '--pitch', '0', '--roll', '0.0',
-            '--frame-id', 'world', '--child-frame-id', 'map'
-        ]
-    )
-
-    static_transform_node_1 = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        arguments = [
-            '--x', '0', '--y', '0', '--z', '0.0',
-            '--yaw', '0.0', '--pitch', '0', '--roll', '0.0',
-            '--frame-id', 'map', '--child-frame-id', 'odom'
-        ]
+            '--frame-id', 'world', '--child-frame-id', 'map',
+        ],
     )
 
     return [
         gazebo_launch,
         robot_launch,
         localisation_node,
-        control_node,
+        slam_node,
         camera_node,
-        image_node,
-        tangent_bug_node,
-        #graph_node,
-        #tree_node,
+        mission_node,
+        planner_node,
+        controller_node,
+        slam_resetter,
         rviz_node,
-        static_transform_node,
-        static_transform_node_1,
+        static_world_map,
     ]
 
 
@@ -179,11 +171,7 @@ def generate_launch_description():
     world_arg = DeclareLaunchArgument(
         'world',
         default_value=DEFAULT_WORLD,
-        description=(
-            'Mundo a cargar: obstacle_avoidance_1.world (default), '
-            'obstacle_avoidance_2.world, obstacle_avoidance_3.world, '
-            'obstacle_avoidance_4.world'
-        )
+        description='Mundo a cargar: maze.world (default), maze2.world, maze3.world'
     )
     return LaunchDescription([
         world_arg,

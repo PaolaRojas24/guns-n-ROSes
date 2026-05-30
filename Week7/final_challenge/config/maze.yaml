@@ -22,7 +22,7 @@ localisation_node:
         y:    1.10
         yaw: -1.5708     # mira hacia -Y
 
-tangent_bug_node:
+mission_node:
   ros__parameters:
     trajectory_goals:
       goal_1:
