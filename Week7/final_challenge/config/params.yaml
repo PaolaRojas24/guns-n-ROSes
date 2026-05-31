@@ -48,7 +48,7 @@ controller_node:
 # ── SLAM Resetter: limpia el mapa cuando ve un ArUco o periódicamente ───────
 slam_resetter:
   ros__parameters:
-    reset_on_aruco:          true   # al detectar ArUco, llama /slam_toolbox/reset
+    reset_on_aruco:          false   # al detectar ArUco, llama /slam_toolbox/reset
     periodic_reset_period_s: 0.0    # >0 = reset cada N s adicional al ArUco; 0 = desactivado
     min_reset_interval_s:    5.0    # debounce: nunca dos resets en menos de esto
     initial_grace_s:         8.0    # no resetear durante los primeros N s (warm-up SLAM)
@@ -59,6 +59,6 @@ slam_resetter:
 camera_node:
   ros__parameters:
     aruco_dict:    'DICT_4X4_250'
-    marker_size:   0.15       # m — tamaño del lado del marcador en el mundo
+    marker_size:   0.14       # m — tamaño del lado del marcador en el mundo
     camera_frame:  'camera_link_optical'
     publish_debug: true

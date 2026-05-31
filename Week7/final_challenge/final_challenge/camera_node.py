@@ -1,25 +1,21 @@
-import numpy as np
-import cv2
-from cv2 import aruco
-
-import rclpy
-from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
-
-from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import PoseArray, Pose
-from std_msgs.msg import Header
-
-from cv_bridge import CvBridge
-from tf2_ros import TransformBroadcaster
-from geometry_msgs.msg import TransformStamped
-
+"""Camera — detecta marcadores ArUco y publica su pose en el frame de la cámara."""
 import math
 
+import cv2
+import numpy as np
+from cv2 import aruco
+from cv_bridge import CvBridge
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Utilidades de rotación
-# ──────────────────────────────────────────────────────────────────────────────
+import rclpy
+from geometry_msgs.msg import Pose, PoseArray, TransformStamped
+from rclpy.node import Node
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+from sensor_msgs.msg import CameraInfo, Image
+from std_msgs.msg import Header
+from tf2_ros import TransformBroadcaster
+
+
+# ── Utilidades de rotación ────────────────────────────────────────────────────
 
 def rotation_vector_to_quaternion(rvec: np.ndarray):
     """Convierte un vector de rotación de Rodrigues a cuaternión (x, y, z, w)."""
@@ -27,7 +23,7 @@ def rotation_vector_to_quaternion(rvec: np.ndarray):
     if angle < 1e-10:
         return 0.0, 0.0, 0.0, 1.0
     axis = rvec.flatten() / angle
-    s = math.sin(angle / 2.0)
+    s    = math.sin(angle / 2.0)
     return (
         float(axis[0] * s),
         float(axis[1] * s),
@@ -36,9 +32,7 @@ def rotation_vector_to_quaternion(rvec: np.ndarray):
     )
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Nodo principal
-# ──────────────────────────────────────────────────────────────────────────────
+# ── Nodo principal ────────────────────────────────────────────────────────────
 
 class CameraNode(Node):
     """
@@ -49,13 +43,13 @@ class CameraNode(Node):
     def __init__(self):
         super().__init__('camera_node')
 
-        # ── Parámetros declarados ─────────────────────────────────────────────
+        # ── Parámetros ────────────────────────────────────────────────────────
         self.declare_parameter('aruco_dict',    'DICT_4X4_250')
-        self.declare_parameter('marker_size',   0.025)          # metros
+        self.declare_parameter('marker_size',   0.025)   # metros
         self.declare_parameter('camera_frame',  'camera_link_optical')
         self.declare_parameter('publish_debug', True)
 
-        dict_name   = self.get_parameter('aruco_dict').value
+        dict_name          = self.get_parameter('aruco_dict').value
         self.marker_size   = self.get_parameter('marker_size').value
         self.camera_frame  = self.get_parameter('camera_frame').value
         self.publish_debug = self.get_parameter('publish_debug').value
@@ -69,29 +63,26 @@ class CameraNode(Node):
             'DICT_5X5_50':   aruco.DICT_5X5_50,
             'DICT_5X5_250':  aruco.DICT_5X5_250,
         }
-
         aruco_dict_id = dict_map.get(dict_name, aruco.DICT_4X4_250)
 
-        # Compatibilidad con OpenCV viejo (<4.7) y nuevo (>=4.7)
+        # Compatibilidad con OpenCV < 4.7 y >= 4.7
         self.dictionary = aruco.getPredefinedDictionary(aruco_dict_id)
         if hasattr(aruco, 'ArucoDetector'):
             self.detector_params = aruco.DetectorParameters()
-            self.detector = aruco.ArucoDetector(self.dictionary, self.detector_params)
-            self._use_new_api = True
+            self.detector        = aruco.ArucoDetector(self.dictionary, self.detector_params)
+            self._use_new_api    = True
         else:
             self.detector_params = aruco.DetectorParameters_create()
-            self.detector = None
-            self._use_new_api = False
+            self.detector        = None
+            self._use_new_api    = False
 
-        # ── Parámetros de cámara (se llenan con camera_info) ──────────────────
+        # ── Parámetros intrínsecos de cámara (se llenan con /camera_info) ─────
         self.camera_matrix = None
         self.dist_coeffs   = None
         self.camera_ready  = False
 
-        # ── CV Bridge ─────────────────────────────────────────────────────────
-        self.bridge = CvBridge()
-
-        # ── TF broadcaster ────────────────────────────────────────────────────
+        # ── CV Bridge y TF broadcaster ────────────────────────────────────────
+        self.bridge         = CvBridge()
         self.tf_broadcaster = TransformBroadcaster(self)
 
         # ── QoS ───────────────────────────────────────────────────────────────
@@ -102,21 +93,11 @@ class CameraNode(Node):
         )
 
         # ── Suscriptores ──────────────────────────────────────────────────────
-        self.create_subscription(
-            CameraInfo,
-            '/camera_info',
-            self._camera_info_cb,
-            sensor_qos,
-        )
-        self.create_subscription(
-            Image,
-            '/camera',
-            self._image_cb,
-            sensor_qos,
-        )
+        self.create_subscription(CameraInfo, '/camera_info', self._camera_info_cb, sensor_qos)
+        self.create_subscription(Image,      '/camera',      self._image_cb,       sensor_qos)
 
         # ── Publicadores ──────────────────────────────────────────────────────
-        # Pose de cada marcador detectado (frame de la cámara)
+        # Poses de los marcadores detectados (indexadas por marker_id)
         self.pub_poses = self.create_publisher(PoseArray, '/aruco/detections', 10)
 
         # Imagen de debug con los marcadores dibujados
@@ -139,7 +120,7 @@ class CameraNode(Node):
         K = np.array(msg.k, dtype=np.float64).reshape(3, 3)
         D = np.array(msg.d, dtype=np.float64)
 
-        # Si el modelo de distorsión es vacío (cámara ideal en Gazebo)
+        # Cámara ideal en Gazebo puede no tener coeficientes de distorsión
         if D.size == 0:
             D = np.zeros(5, dtype=np.float64)
 
@@ -155,11 +136,10 @@ class CameraNode(Node):
     # ── Callback: Image ───────────────────────────────────────────────────────
 
     def _image_cb(self, msg: Image):
-        """Detecta marcadores en cada frame y publica resultados."""
+        """Detecta marcadores en cada frame y publica poses + imagen de debug."""
         if not self.camera_ready:
             return
 
-        # Convertir ROS Image → OpenCV BGR
         try:
             frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         except Exception as e:
@@ -170,19 +150,19 @@ class CameraNode(Node):
 
         # ── Detección ─────────────────────────────────────────────────────────
         if self._use_new_api:
-            corners, ids, rejected = self.detector.detectMarkers(gray)
+            corners, ids, _ = self.detector.detectMarkers(gray)
         else:
-            corners, ids, rejected = aruco.detectMarkers(
+            corners, ids, _ = aruco.detectMarkers(
                 gray, self.dictionary, parameters=self.detector_params
             )
 
+        # PoseArray con slots fijos indexados por marker_id (0..3)
+        # Una pose con position.x == NaN indica que el marcador no fue detectado
         pose_array = PoseArray()
         pose_array.header = Header()
         pose_array.header.stamp    = msg.header.stamp
         pose_array.header.frame_id = self.camera_frame
 
-        # Slots fijos indexados por marker_id (0..3). NaN = no detectado.
-        # localisation_node usa el índice para identificar el marcador.
         pose_array.poses = [Pose() for _ in range(4)]
         for p in pose_array.poses:
             p.position.x = float('nan')
@@ -192,14 +172,15 @@ class CameraNode(Node):
         debug_frame = frame.copy() if self.publish_debug else None
 
         if ids is not None and len(ids) > 0:
-            aruco.drawDetectedMarkers(debug_frame if debug_frame is not None else frame,
-                                      corners, ids)
+            aruco.drawDetectedMarkers(
+                debug_frame if debug_frame is not None else frame,
+                corners, ids
+            )
 
             for i, marker_id in enumerate(ids.flatten()):
                 corner = corners[i]
 
                 # ── Estimación de pose (PnP) ───────────────────────────────────
-                # Coordenadas 3D del marcador
                 obj_points = np.array([
                     [-self.marker_size / 2,  self.marker_size / 2, 0],
                     [ self.marker_size / 2,  self.marker_size / 2, 0],
@@ -207,7 +188,6 @@ class CameraNode(Node):
                     [-self.marker_size / 2, -self.marker_size / 2, 0],
                 ], dtype=np.float32)
 
-                # Esquinas detectadas
                 img_points = corner[0].astype(np.float32)
 
                 success, rvec, tvec = cv2.solvePnP(
@@ -224,7 +204,7 @@ class CameraNode(Node):
                 rvec = rvec.flatten()
                 tvec = tvec.flatten()
 
-                # ── Pose en PoseArray (indexada por marker_id) ────────────────
+                # ── Almacenar pose en el slot del marcador ────────────────────
                 mid = int(marker_id)
                 if 0 <= mid < len(pose_array.poses):
                     pose = pose_array.poses[mid]
@@ -238,7 +218,7 @@ class CameraNode(Node):
                     pose.orientation.z = qz
                     pose.orientation.w = qw
 
-                # ── TF: marker_<id> en el frame de la cámara ─────────────────
+                # ── TF cámara → marcador ──────────────────────────────────────
                 self._publish_marker_tf(
                     stamp=msg.header.stamp,
                     marker_id=int(marker_id),
@@ -246,30 +226,25 @@ class CameraNode(Node):
                     rvec=rvec,
                 )
 
-                # ── Distancia y anotación en debug ────────────────────────────
-                dist = float(np.linalg.norm(tvec))
-                angle_rad = math.atan2(tvec[0], tvec[2])
-                angle_deg = math.degrees(angle_rad)
+                # ── Anotación en imagen de debug ──────────────────────────────
+                dist      = float(np.linalg.norm(tvec))
+                angle_deg = math.degrees(math.atan2(tvec[0], tvec[2]))
 
                 if debug_frame is not None:
                     cv2.drawFrameAxes(
                         debug_frame,
                         self.camera_matrix,
                         self.dist_coeffs,
-                        rvec,
-                        tvec,
+                        rvec, tvec,
                         self.marker_size * 0.5,
                     )
-                    # Centro del marcador
                     c = corner[0].mean(axis=0).astype(int)
                     cv2.putText(
                         debug_frame,
                         f'id={marker_id} {dist:.2f}m {angle_deg:.1f} deg',
                         (c[0], c[1] - 10),
                         cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5,
-                        (0, 255, 0),
-                        2,
+                        0.5, (0, 255, 0), 2,
                     )
 
                 self.get_logger().debug(
@@ -278,7 +253,7 @@ class CameraNode(Node):
                     f'dist={dist:.3f} m'
                 )
 
-        # ── Publicar poses (aunque sea vacío → señal de "ningún marcador") ────
+        # ── Publicar poses (vacío si no hay marcadores) ────────────────────────
         self.pub_poses.publish(pose_array)
 
         # ── Publicar imagen de debug ──────────────────────────────────────────
@@ -313,7 +288,7 @@ class CameraNode(Node):
         self.tf_broadcaster.sendTransform(t)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 def main(args=None):
     rclpy.init(args=args)

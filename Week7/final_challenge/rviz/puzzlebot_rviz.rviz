@@ -128,7 +128,7 @@ Visualization Manager:
         Position:
           Alpha: 1
           Color: 153; 193; 241
-          Scale: 1
+          Scale: 4
           Value: true
         Value: true
       Enabled: true
@@ -136,10 +136,10 @@ Visualization Manager:
       Name: Odometry
       Position Tolerance: 0.10000000149011612
       Shape:
-        Alpha: 0.1
+        Alpha: 0.5
         Axes Length: 1
         Axes Radius: 0.10000000149011612
-        Color: 255; 0; 0
+        Color: 255; 0; 255
         Head Length: 0.05000000074505806
         Head Radius: 0.03
         Shaft Length: 0.30000001192092896
@@ -304,25 +304,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 3.9009
+      Distance: 9.94526
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X:  1.51936
-        Y:  1.68439
-        Z: -0.272319
+        X:  0.0
+        Y:  0.0
+        Z:  0.0
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.355398
+      Pitch: 1.57
       Target Frame: world
       Value: Orbit (rviz)
-      Yaw: 6.27858
+      Yaw: 3.14
     Saved: ~
 
 Window Geometry:

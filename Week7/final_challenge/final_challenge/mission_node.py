@@ -1,9 +1,8 @@
-"""Mission node — secuencia waypoints y manda un goal a la vez al planner."""
-import math
+"""Mission — gestiona la secuencia de waypoints y publica /goal_pose."""
 import rclpy
+from geometry_msgs.msg import PoseStamped
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, DurabilityPolicy
-from geometry_msgs.msg import PoseStamped, Point
+from rclpy.qos import DurabilityPolicy, QoSProfile
 from std_msgs.msg import Bool, ColorRGBA
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -16,6 +15,7 @@ class MissionNode(Node):
     def __init__(self):
         super().__init__('mission_node')
 
+        # ── Parámetros ────────────────────────────────────────────────────────
         for i in range(1, _N_GOALS + 1):
             self.declare_parameter(f'trajectory_goals.goal_{i}.x', 0.0)
             self.declare_parameter(f'trajectory_goals.goal_{i}.y', 0.0)
@@ -26,6 +26,7 @@ class MissionNode(Node):
         self.start_delay_s  = self.get_parameter('start_delay_s').value
         self.loop_waypoints = self.get_parameter('loop_waypoints').value
 
+        # ── Estado interno ────────────────────────────────────────────────────
         self.waypoints = self._load_waypoints()
         self.idx       = 0
         self.started   = False
@@ -39,18 +40,26 @@ class MissionNode(Node):
             for i, (wx, wy) in enumerate(self.waypoints):
                 self.get_logger().info(f'  goal_{i + 1}: ({wx:.2f}, {wy:.2f})')
 
-        # /goal_pose con TRANSIENT_LOCAL para que late-joiners (planner, controller) lo reciban
+        # ── QoS ───────────────────────────────────────────────────────────────
+        # TRANSIENT_LOCAL para que planner y controller reciban el goal aunque
+        # se suscriban después de que mission_node lo publique
         qos_goal = QoSProfile(depth=10, durability=DurabilityPolicy.TRANSIENT_LOCAL)
-        self.pub_goal = self.create_publisher(PoseStamped, '/goal_pose', qos_goal)
+
+        # ── Publicadores ──────────────────────────────────────────────────────
+        self.pub_goal = self.create_publisher(PoseStamped, '/goal_pose',   qos_goal)
         self.pub_viz  = self.create_publisher(MarkerArray, '/mission/viz', 10)
 
+        # ── Suscriptores ──────────────────────────────────────────────────────
         self.create_subscription(Bool, '/goal_reached', self.goal_reached_cb, 10)
 
-        # Espera a que SLAM publique /map y los nodos se conecten
+        # ── Timers ────────────────────────────────────────────────────────────
         self.start_timer = self.create_timer(self.start_delay_s, self._start_mission)
         self.create_timer(1.0, self._publish_viz)
 
+    # ── Carga de waypoints ────────────────────────────────────────────────────
+
     def _load_waypoints(self):
+        """Lee los waypoints del YAML, omitiendo los que tienen x==0 e y==0."""
         wps = []
         for i in range(1, _N_GOALS + 1):
             x = self.get_parameter(f'trajectory_goals.goal_{i}.x').value
@@ -60,7 +69,10 @@ class MissionNode(Node):
             wps.append((float(x), float(y)))
         return wps
 
+    # ── Lógica de misión ──────────────────────────────────────────────────────
+
     def _start_mission(self):
+        """Callback del timer de inicio: cancela el timer y envía el primer goal."""
         self.start_timer.cancel()
         if not self.waypoints:
             return
@@ -69,12 +81,13 @@ class MissionNode(Node):
         self._send_current_goal()
 
     def _send_current_goal(self):
+        """Publica el waypoint activo como PoseStamped en /goal_pose."""
         wx, wy = self.waypoints[self.idx]
         msg = PoseStamped()
-        msg.header.frame_id = 'world'
-        msg.header.stamp    = self.get_clock().now().to_msg()
-        msg.pose.position.x = wx
-        msg.pose.position.y = wy
+        msg.header.frame_id    = 'map'
+        msg.header.stamp       = self.get_clock().now().to_msg()
+        msg.pose.position.x    = wx
+        msg.pose.position.y    = wy
         msg.pose.orientation.w = 1.0
         self.pub_goal.publish(msg)
         self.get_logger().info(
@@ -82,6 +95,7 @@ class MissionNode(Node):
         )
 
     def goal_reached_cb(self, msg: Bool):
+        """Avanza al siguiente waypoint al recibir confirmación de llegada."""
         if not msg.data or not self.started:
             return
         self.get_logger().info(f'goal_{self.idx + 1} alcanzado')
@@ -97,47 +111,55 @@ class MissionNode(Node):
             self.idx = nxt
         self._send_current_goal()
 
+    # ── Visualización ─────────────────────────────────────────────────────────
+
     def _publish_viz(self):
+        """Publica cilindros y etiquetas en RViz para cada waypoint."""
         if not self.waypoints:
             return
-        arr = MarkerArray()
+        arr   = MarkerArray()
         stamp = self.get_clock().now().to_msg()
+
         for i, (wx, wy) in enumerate(self.waypoints):
             active = (i == self.idx and self.started)
+
+            # Cilindro en la posición del waypoint
             cyl = Marker()
-            cyl.header.frame_id = 'world'
-            cyl.header.stamp    = stamp
-            cyl.ns              = 'waypoints'
-            cyl.id              = i
-            cyl.type            = Marker.CYLINDER
-            cyl.action          = Marker.ADD
-            cyl.pose.position.x = wx
-            cyl.pose.position.y = wy
-            cyl.pose.position.z = 0.05
+            cyl.header.frame_id    = 'map'
+            cyl.header.stamp       = stamp
+            cyl.ns                 = 'waypoints'
+            cyl.id                 = i
+            cyl.type               = Marker.CYLINDER
+            cyl.action             = Marker.ADD
+            cyl.pose.position.x    = wx
+            cyl.pose.position.y    = wy
+            cyl.pose.position.z    = 0.05
             cyl.pose.orientation.w = 1.0
             cyl.scale.x = cyl.scale.y = 0.25
             cyl.scale.z = 0.10
-            cyl.color = ColorRGBA(
+            cyl.color   = ColorRGBA(
                 r=1.0, g=(1.0 if active else 0.6), b=0.0,
                 a=(0.9 if active else 0.4)
             )
             arr.markers.append(cyl)
 
+            # Etiqueta de texto sobre el cilindro
             txt = Marker()
-            txt.header.frame_id = 'world'
-            txt.header.stamp    = stamp
-            txt.ns              = 'waypoint_labels'
-            txt.id              = i
-            txt.type            = Marker.TEXT_VIEW_FACING
-            txt.action          = Marker.ADD
-            txt.pose.position.x = wx
-            txt.pose.position.y = wy
-            txt.pose.position.z = 0.35
+            txt.header.frame_id    = 'map'
+            txt.header.stamp       = stamp
+            txt.ns                 = 'waypoint_labels'
+            txt.id                 = i
+            txt.type               = Marker.TEXT_VIEW_FACING
+            txt.action             = Marker.ADD
+            txt.pose.position.x    = wx
+            txt.pose.position.y    = wy
+            txt.pose.position.z    = 0.35
             txt.pose.orientation.w = 1.0
             txt.scale.z = 0.18
             txt.color   = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)
             txt.text    = f'goal_{i + 1}'
             arr.markers.append(txt)
+
         self.pub_viz.publish(arr)
 
 

@@ -18,8 +18,7 @@
                             <specular>1 1 1 1</specular>
                             <pbr>
                                 <metal>
-                                <albedo_map>model://goal_marker_5/materials/textures/mcr2_goal_5.png</albedo_map>
-                                <normal_map>model://goal_marker_5/materials/textures/mcr2_goal_5.png</normal_map>
+                                <albedo_map>model://goal_marker_5/materials/textures/meta.jpeg</albedo_map>
                                 </metal>
                             </pbr>
                         </material>

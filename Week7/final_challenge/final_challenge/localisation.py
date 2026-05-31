@@ -1,4 +1,6 @@
+"""Localisation — EKF con odometría de ruedas y corrección por marcadores ArUco."""
 import math
+
 import numpy as np
 import rclpy
 from geometry_msgs.msg import PoseArray
@@ -7,18 +9,14 @@ from rclpy.node import Node
 from std_msgs.msg import Float32
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Utilidades
-# ══════════════════════════════════════════════════════════════════════════════
+# ── Utilidades ────────────────────────────────────────────────────────────────
 
 def _normalize_angle(angle: float) -> float:
     """Normaliza un ángulo al rango [-π, π]."""
     return math.atan2(math.sin(angle), math.cos(angle))
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Nodo principal
-# ══════════════════════════════════════════════════════════════════════════════
+# ── Nodo principal ────────────────────────────────────────────────────────────
 
 class LocalisationNode(Node):
 
@@ -30,13 +28,13 @@ class LocalisationNode(Node):
 
         # ── Parámetros de cinemática ──────────────────────────────────────────
         self.declare_parameter('wheel_radius', 0.05)
-        self.declare_parameter('wheel_base',   0.108)
+        self.declare_parameter('wheel_base',   0.19)
         self.declare_parameter('kr',           0.014)
         self.declare_parameter('kl',           0.014)
 
-        # Varianza de la observación ArUco: [dist² (m²), angle² (rad²)]
-        self.declare_parameter('aruco_r_dist',  0.0025)   # ≈5cm std
-        self.declare_parameter('aruco_r_angle', 0.0025)   # ≈3° std
+        # Varianza de la observación ArUco: [dist² (m²), ángulo² (rad²)]
+        self.declare_parameter('aruco_r_dist',  0.0025)   # ≈ 5 cm std
+        self.declare_parameter('aruco_r_angle', 0.0025)   # ≈ 3° std
 
         self.r  = self.get_parameter('wheel_radius').value
         self.L  = self.get_parameter('wheel_base').value
@@ -47,10 +45,7 @@ class LocalisationNode(Node):
         self.r_angle = self.get_parameter('aruco_r_angle').value
 
         # ── Mapa de marcadores desde parámetros ROS 2 ─────────────────────────
-        # Cada marcador expone tres parámetros:
-        #   aruco_map.marker_<id>.x   (float)
-        #   aruco_map.marker_<id>.y   (float)
-        #   aruco_map.marker_<id>.yaw (float)
+        # Formato: aruco_map.marker_<id>.{x, y, yaw}
         self.aruco_map: dict = {}
         for mid in self._MARKER_IDS:
             prefix = f'aruco_map.marker_{mid}'
@@ -68,19 +63,18 @@ class LocalisationNode(Node):
         self.wr = 0.0   # velocidad angular rueda derecha [rad/s]
         self.wl = 0.0   # velocidad angular rueda izquierda [rad/s]
 
-        # Covarianza 3×3  [x, y, θ]
+        # Covarianza 3×3 — estado [x, y, θ]
         self.sigma = np.zeros((3, 3))
 
         self.prev_time = None
 
-        # ── Publishers ────────────────────────────────────────────────────────
+        # ── Publicadores ──────────────────────────────────────────────────────
         self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
 
-        # ── Subscribers ───────────────────────────────────────────────────────
-        self.create_subscription(Float32, 'wr', self._wr_cb, 10)
-        self.create_subscription(Float32, 'wl', self._wl_cb, 10)
-        self.create_subscription(PoseArray, '/aruco/detections',
-                                 self._aruco_cb, 10)
+        # ── Suscriptores ──────────────────────────────────────────────────────
+        self.create_subscription(Float32,   'wr',                 self._wr_cb,    10)
+        self.create_subscription(Float32,   'wl',                 self._wl_cb,    10)
+        self.create_subscription(PoseArray, '/aruco/detections',  self._aruco_cb, 10)
 
         # ── Timer de integración a 50 Hz ──────────────────────────────────────
         self.create_timer(0.02, self._update)
@@ -90,16 +84,13 @@ class LocalisationNode(Node):
             f'marcadores={list(self.aruco_map.keys())}'
         )
 
-    # ── Carga del mapa desde parámetros ──────────────────────────────────────
+    # ── Carga del mapa de marcadores ──────────────────────────────────────────
 
     def _reload_aruco_map(self):
         """
-        Lee aruco_map.marker_<id>.{x,y,yaw} de los parámetros ROS 2 y
-        construye self.aruco_map = {id: {'x': float, 'y': float, 'yaw': float}}
-
-        Solo registra los marcadores cuyos parámetros son distintos de cero
-        (si x==0 y y==0 y yaw==0 asumimos que el mundo no declaró ese marcador
-        y lo ignoramos para no contaminar el EKF).
+        Lee aruco_map.marker_<id>.{x, y, yaw} de los parámetros ROS 2 y
+        construye self.aruco_map = {id: {'x': float, 'y': float, 'yaw': float}}.
+        Se omiten los marcadores con x==0, y==0 e yaw==0 (no definidos).
         """
         self.aruco_map = {}
         for mid in self._MARKER_IDS:
@@ -108,9 +99,8 @@ class LocalisationNode(Node):
             y   = self.get_parameter(f'{prefix}.y').value
             yaw = self.get_parameter(f'{prefix}.yaw').value
 
-            # Ignorar marcadores no definidos (valores por defecto todos cero)
             if x == 0.0 and y == 0.0 and yaw == 0.0:
-                continue
+                continue   # marcador no definido en este mundo
 
             self.aruco_map[mid] = {'x': float(x), 'y': float(y), 'yaw': float(yaw)}
 
@@ -122,8 +112,8 @@ class LocalisationNode(Node):
                 )
         else:
             self.get_logger().warn(
-                'aruco_map vacío — verifica que el config YAML del mundo '
-                'se está pasando como parámetro en el launch file.'
+                'aruco_map vacío — verifica que el YAML del mundo '
+                'se pasa como parámetro en el launch file.'
             )
 
     # ── Callbacks de encoders ─────────────────────────────────────────────────
@@ -134,7 +124,7 @@ class LocalisationNode(Node):
     def _wl_cb(self, msg: Float32):
         self.wl = msg.data
 
-    # ── Loop de integración (predicción EKF) ──────────────────────────────────
+    # ── Paso de predicción EKF ────────────────────────────────────────────────
 
     def _update(self):
         now = self.get_clock().now()
@@ -149,23 +139,23 @@ class LocalisationNode(Node):
         if dt <= 0.0:
             return
 
-        # ── Cinemática diferencial ────────────────────────────────────────────
+        # Cinemática diferencial
         v = self.r * (self.wr + self.wl) / 2.0
         w = self.r * (self.wr - self.wl) / self.L
 
-        # ── Jacobiano H evaluado ANTES de integrar (yaw actual) ───────────────
+        # Jacobiano del modelo de movimiento (evaluado antes de integrar)
         H = np.array([
             [1.0, 0.0, -dt * v * math.sin(self.yaw)],
             [0.0, 1.0,  dt * v * math.cos(self.yaw)],
             [0.0, 0.0,  1.0],
         ])
 
-        # ── Integración de la pose ────────────────────────────────────────────
+        # Integración de la pose
         self.x   += v * math.cos(self.yaw) * dt
         self.y   += v * math.sin(self.yaw) * dt
         self.yaw  = _normalize_angle(self.yaw + w * dt)
 
-        # ── Jacobiano de velocidades ∇w (3×2) ────────────────────────────────
+        # Jacobiano de velocidades ∇w (3×2)
         c = math.cos(self.yaw)
         s = math.sin(self.yaw)
 
@@ -175,26 +165,25 @@ class LocalisationNode(Node):
             [ self.r * dt / self.L,      -self.r * dt / self.L   ],
         ])
 
-        # ── Ruido de proceso  Q = ∇w · Σ_Δ · ∇w^T ───────────────────────────
+        # Ruido de proceso Q = ∇w · Σ_Δ · ∇wᵀ
         sigma_delta = np.diag([
             self.kr * abs(self.wr),
             self.kl * abs(self.wl),
         ])
         Q = grad_w @ sigma_delta @ grad_w.T
 
-        # ── Propagación de covarianza  Σ = H · Σ · H^T + Q ───────────────────
+        # Propagación de covarianza Σ = H · Σ · Hᵀ + Q
         self.sigma = H @ self.sigma @ H.T + Q
 
-        # ── Publicar Odometry ─────────────────────────────────────────────────
         self._publish_odom(now, v, w)
 
-    # ── Publicación ───────────────────────────────────────────────────────────
+    # ── Publicación de odometría ──────────────────────────────────────────────
 
     def _publish_odom(self, stamp, v: float, w: float):
         qz = math.sin(self.yaw / 2.0)
         qw = math.cos(self.yaw / 2.0)
 
-        # Mapeo Σ 3×3 → covarianza 6×6 ROS (orden: x y z roll pitch yaw)
+        # Mapeo Σ 3×3 → covarianza 6×6 de ROS (orden: x y z roll pitch yaw)
         cov36 = [0.0] * 36
         cov36[0]  = self.sigma[0, 0]   # x–x
         cov36[1]  = self.sigma[0, 1]   # x–y
@@ -231,11 +220,11 @@ class LocalisationNode(Node):
         """
         Observación esperada h(x) para un marcador conocido.
 
-        Modelo polar:  z = [ρ, α]
-          ρ = distancia euclidiana robot → marcador  (m)
-          α = ángulo al marcador relativo al heading del robot  (rad, [-π, π])
+        Modelo polar: z = [ρ, α]
+          ρ = distancia euclidiana robot → marcador (m)
+          α = ángulo al marcador relativo al heading del robot (rad, [-π, π])
 
-        Retorna (rho, alpha) o None si el marcador no está en el mapa.
+        Devuelve (rho, alpha) o None si el marcador no está en el mapa.
         """
         if marker_id not in self.aruco_map:
             return None
@@ -257,7 +246,7 @@ class LocalisationNode(Node):
           ∂ρ/∂x = -(mx-x)/ρ       ∂ρ/∂y = -(my-y)/ρ     ∂ρ/∂θ =  0
           ∂α/∂x =  (my-y)/ρ²      ∂α/∂y = -(mx-x)/ρ²    ∂α/∂θ = -1
 
-        Retorna np.ndarray (2×3) o None si el marcador no está en el mapa.
+        Devuelve np.ndarray (2×3) o None si el marcador no está en el mapa.
         """
         if marker_id not in self.aruco_map:
             return None
@@ -278,20 +267,18 @@ class LocalisationNode(Node):
             [ dy / rho2,  -dx / rho2, -1.0],
         ])
 
-    # ── Callback ArUco — paso de corrección EKF ──────────────────────────────
+    # ── Paso de corrección EKF por ArUco ──────────────────────────────────────
 
     def _aruco_cb(self, msg: PoseArray):
         """
-        Corrección EKF por cada marcador detectado.
+        Corrección EKF por cada marcador detectado en el frame.
 
         msg.poses está indexado por marker_id (slots 0..3). Una pose con
-        position.x == NaN significa "no detectado" — se ignora.
+        position.x == NaN indica que el marcador no fue detectado.
 
-        La pose viene en el frame óptico de la cámara:
-          x = derecha, y = abajo, z = adelante
-        Se proyecta al plano del suelo (xz) para obtener (rho, alpha)
-        relativos al robot. Se asume que la cámara está centrada en
-        base_footprint (offset pequeño, absorbido en R).
+        La pose viene en el frame óptico de la cámara (x=derecha, y=abajo,
+        z=adelante). Se proyecta al plano del suelo (xz) para obtener
+        (rho, alpha) relativos al robot.
         """
         R = np.diag([self.r_dist, self.r_angle])
 
@@ -305,8 +292,8 @@ class LocalisationNode(Node):
             if mid not in self.aruco_map:
                 continue
 
-            cam_x = pose.position.x      # derecha (+) / izquierda (−)
-            cam_z = pose.position.z      # adelante
+            cam_x = pose.position.x   # positivo = derecha
+            cam_z = pose.position.z   # positivo = adelante
 
             rho_meas   = math.hypot(cam_x, cam_z)
             alpha_meas = math.atan2(-cam_x, cam_z)   # +α = a la izquierda
@@ -336,7 +323,7 @@ class LocalisationNode(Node):
             self.sigma = (np.eye(3) - K @ H_obs) @ self.sigma
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 def main(args=None):
     rclpy.init(args=args)

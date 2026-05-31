@@ -1,26 +1,25 @@
-# ── Marcadores ────────────────────────────────────────────────────────────────
 localisation_node:
   ros__parameters:
     aruco_map:
       marker_0:
         x:   -3.90
         y:    2.50
-        yaw:  0.0        # mira hacia +X
+        yaw:  0.0
 
       marker_1:
         x:   -2.50
         y:   -1.30
-        yaw:  1.5708     # mira hacia +Y
+        yaw:  1.5708
 
       marker_2:
         x:    0.70
         y:   -1.00
-        yaw:  3.141593   # mira hacia -X
+        yaw:  3.141593
 
       marker_3:
         x:    2.50
         y:    1.10
-        yaw: -1.5708     # mira hacia -Y
+        yaw: -1.5708
 
 mission_node:
   ros__parameters:

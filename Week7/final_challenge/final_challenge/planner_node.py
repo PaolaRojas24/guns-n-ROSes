@@ -9,8 +9,7 @@ import transforms3d
 from geometry_msgs.msg import Point, PoseStamped
 from nav_msgs.msg import OccupancyGrid, Path
 from rclpy.node import Node
-from rclpy.qos import (DurabilityPolicy, QoSProfile, ReliabilityPolicy)
-from scipy.ndimage import binary_dilation
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import ColorRGBA
 from tf2_ros import (Buffer, ConnectivityException, ExtrapolationException,
@@ -23,56 +22,60 @@ class PlannerNode(Node):
     def __init__(self):
         super().__init__('planner_node')
 
-        self.declare_parameter('robot_radius',       0.12)
-        self.declare_parameter('replan_period_s',    1.5)
-        self.declare_parameter('map_frame',          'map')
-        self.declare_parameter('robot_frame',        'base_footprint')
-        self.declare_parameter('unknown_is_obstacle', False)
-        self.declare_parameter('path_simplify',      True)
-        self.declare_parameter('allow_diagonal',     True)
-        # Limpieza en vivo del grid con el LiDAR actual (anti paredes fantasma SLAM)
-        self.declare_parameter('use_live_scan_clearing', True)
-        self.declare_parameter('scan_topic',             '/scan')
-        self.declare_parameter('clearing_max_range',     5.0)
-
-        self.robot_radius         = self.get_parameter('robot_radius').value
-        self.replan_period_s      = self.get_parameter('replan_period_s').value
-        self.map_frame            = self.get_parameter('map_frame').value
-        self.robot_frame          = self.get_parameter('robot_frame').value
-        self.unknown_is_obstacle  = self.get_parameter('unknown_is_obstacle').value
-        self.path_simplify        = self.get_parameter('path_simplify').value
-        self.allow_diagonal       = self.get_parameter('allow_diagonal').value
-        self.use_live_scan_clearing = self.get_parameter('use_live_scan_clearing').value
-        self.scan_topic           = self.get_parameter('scan_topic').value
-        self.clearing_max_range   = self.get_parameter('clearing_max_range').value
-
-        self.map_msg          = None
-        self.raw_obs          = None    # obstáculos crudos del SLAM (sin inflar)
-        self.inflated_obs     = None    # SLAM inflado (para compatibilidad)
-        self.work_obs         = None    # raw limpio con LiDAR + inflado (lo que usa A*)
-        self.inflation_struct = None    # estructura circular precomputada para dilation
-        self.last_scan        = None
-        self.goal             = None    # (x, y) en frame map
-        # Padding aplicado al grid de trabajo cuando start/goal caen fuera del mapa
-        self._pad_row         = 0
-        self._pad_col         = 0
+        # ── Parámetros ────────────────────────────────────────────────────────
+        self.declare_parameter('robot_radius',            0.12)
+        self.declare_parameter('replan_period_s',         1.5)
+        self.declare_parameter('map_frame',               'map')
+        self.declare_parameter('robot_frame',             'base_footprint')
+        self.declare_parameter('unknown_is_obstacle',     False)
+        self.declare_parameter('path_simplify',           True)
+        self.declare_parameter('allow_diagonal',          True)
+        self.declare_parameter('use_live_scan_clearing',  True)   # limpieza con LiDAR actual
+        self.declare_parameter('scan_topic',              '/scan')
+        self.declare_parameter('clearing_max_range',      5.0)
         self.declare_parameter('out_of_map_margin_cells', 10)
-        self.out_of_map_margin = self.get_parameter('out_of_map_margin_cells').value
 
+        self.robot_radius          = self.get_parameter('robot_radius').value
+        self.replan_period_s       = self.get_parameter('replan_period_s').value
+        self.map_frame             = self.get_parameter('map_frame').value
+        self.robot_frame           = self.get_parameter('robot_frame').value
+        self.unknown_is_obstacle   = self.get_parameter('unknown_is_obstacle').value
+        self.path_simplify         = self.get_parameter('path_simplify').value
+        self.allow_diagonal        = self.get_parameter('allow_diagonal').value
+        self.use_live_scan_clearing = self.get_parameter('use_live_scan_clearing').value
+        self.scan_topic            = self.get_parameter('scan_topic').value
+        self.clearing_max_range    = self.get_parameter('clearing_max_range').value
+        self.out_of_map_margin     = self.get_parameter('out_of_map_margin_cells').value
+
+        # ── Estado interno ────────────────────────────────────────────────────
+        self.map_msg          = None
+        self.raw_obs          = None   # obstáculos crudos del SLAM (sin inflar)
+        self.inflated_obs     = None   # SLAM inflado (compatibilidad con _nearest_free)
+        self.work_obs         = None   # raw limpiado + inflado → usado por A*
+        self.inflation_struct = None   # kernel circular precomputado para dilatación
+        self.last_scan        = None
+        self.goal             = None   # (x, y) en frame map
+        self._pad_row         = 0      # filas añadidas al expandir el grid
+        self._pad_col         = 0      # columnas añadidas al expandir el grid
+
+        # ── TF ────────────────────────────────────────────────────────────────
         self.tf_buffer   = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
+        # ── QoS ───────────────────────────────────────────────────────────────
         qos_map  = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE,
                               durability=DurabilityPolicy.TRANSIENT_LOCAL)
         qos_goal = QoSProfile(depth=10, durability=DurabilityPolicy.TRANSIENT_LOCAL)
-        qos_path = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        qos_path = QoSProfile(depth=1,  durability=DurabilityPolicy.TRANSIENT_LOCAL)
 
+        # ── Suscriptores ──────────────────────────────────────────────────────
         self.create_subscription(OccupancyGrid, '/map',       self.map_cb,  qos_map)
         self.create_subscription(PoseStamped,   '/goal_pose', self.goal_cb, qos_goal)
         if self.use_live_scan_clearing:
             self.create_subscription(LaserScan, self.scan_topic, self.scan_cb, 10)
 
-        self.pub_plan = self.create_publisher(Path, '/plan',          qos_path)
+        # ── Publicadores ──────────────────────────────────────────────────────
+        self.pub_plan = self.create_publisher(Path,        '/plan',        qos_path)
         self.pub_viz  = self.create_publisher(MarkerArray, '/planner/viz', 10)
 
         self.create_timer(self.replan_period_s, self.replan)
@@ -93,13 +96,14 @@ class PlannerNode(Node):
     def scan_cb(self, msg: LaserScan):
         self.last_scan = msg
 
-    # ── Limpieza en vivo con el LiDAR ────────────────────────────────────────
+    # ── Limpieza en vivo con el LiDAR ─────────────────────────────────────────
 
     def _apply_live_scan_clearing(self, base_obs):
         """
-        Devuelve una COPIA de base_obs en la que se marcan como FALSE (libre)
-        las celdas que el LiDAR actual ve como libres (Bresenham desde el
-        robot hasta cada hit, sin tocar la celda del hit).
+        Devuelve una copia de base_obs donde se marcan como libres (False)
+        las celdas que el LiDAR actual ve como espacio libre. Se usa el
+        algoritmo de Bresenham desde el robot hasta cada hit; la celda del
+        hit se conserva como obstáculo.
         """
         if (not self.use_live_scan_clearing or self.last_scan is None
                 or self.map_msg is None):
@@ -129,27 +133,29 @@ class PlannerNode(Node):
         cleared = base_obs.copy()
         h, w    = cleared.shape
 
-        scan        = self.last_scan
-        ranges      = np.asarray(scan.ranges, dtype=float)
-        n           = len(ranges)
+        scan   = self.last_scan
+        ranges = np.asarray(scan.ranges, dtype=float)
+        n      = len(ranges)
         if n == 0 or scan.angle_increment <= 0.0:
             return cleared
-        angles = scan.angle_min + np.arange(n) * scan.angle_increment
 
-        max_r = scan.range_max if scan.range_max > 0 else self.clearing_max_range
+        angles = scan.angle_min + np.arange(n) * scan.angle_increment
+        max_r  = scan.range_max if scan.range_max > 0 else self.clearing_max_range
+
         for r, theta in zip(ranges, angles):
             if not np.isfinite(r) or r <= 0.01:
-                # Rayo inválido: limpia hasta el max_range razonable
-                clear_r = self.clearing_max_range
+                # Rayo inválido: limpia hasta clearing_max_range
+                clear_r    = self.clearing_max_range
                 hit_at_end = False
             elif r >= max_r - 0.05:
-                # Rayo no encontró obstáculo: limpia hasta clearing_max_range
-                clear_r = min(r, self.clearing_max_range)
+                # Rayo sin hit: limpia hasta clearing_max_range
+                clear_r    = min(r, self.clearing_max_range)
                 hit_at_end = False
             else:
-                # Hit real: limpia hasta antes del hit, deja la celda del hit intacta
-                clear_r = min(r, self.clearing_max_range)
+                # Hit real: limpia hasta antes del hit
+                clear_r    = min(r, self.clearing_max_range)
                 hit_at_end = True
+
             ex = rx + clear_r * math.cos(ryaw + theta)
             ey = ry + clear_r * math.sin(ryaw + theta)
             ec = int((ex - ox) / res)
@@ -158,38 +164,17 @@ class PlannerNode(Node):
                                   include_endpoint=not hit_at_end)
         return cleared
 
-    @staticmethod
-    def _bresenham_clear(grid, r0, c0, r1, c1, h, w, include_endpoint=False):
-        dr = abs(r1 - r0)
-        dc = abs(c1 - c0)
-        sr = 1 if r1 > r0 else -1
-        sc = 1 if c1 > c0 else -1
-        err = dr - dc
-        while True:
-            if r0 == r1 and c0 == c1:
-                if include_endpoint and 0 <= r0 < h and 0 <= c0 < w:
-                    grid[r0, c0] = False
-                break    # no limpiar la celda del hit (a menos que include_endpoint)
-            if 0 <= r0 < h and 0 <= c0 < w:
-                grid[r0, c0] = False
-            e2 = 2 * err
-            if e2 > -dc:
-                err -= dc
-                r0  += sr
-            if e2 < dr:
-                err += dr
-                c0  += sc
-
     def _stamp_live_obstacles(self, grid):
         """
-        Marca como obstáculo (True) las celdas donde el LiDAR ve un hit real.
-        Trabaja sobre el grid YA EXPANDIDO usando los offsets de padding, de
-        modo que los obstáculos vistos fuera del mapa de SLAM también cuenten.
+        Marca como obstáculo (True) las celdas donde el LiDAR detecta un hit
+        real. Opera sobre el grid ya expandido usando los offsets de padding,
+        por lo que los hits fuera del mapa de SLAM también se registran.
         Devuelve una copia para no mutar self.raw_obs.
         """
         if (not self.use_live_scan_clearing or self.last_scan is None
                 or self.map_msg is None):
             return grid
+
         try:
             t = self.tf_buffer.lookup_transform(
                 self.map_frame, 'laser_frame', rclpy.time.Time())
@@ -212,6 +197,7 @@ class PlannerNode(Node):
         n      = len(ranges)
         if n == 0 or scan.angle_increment <= 0.0:
             return grid
+
         angles = scan.angle_min + np.arange(n) * scan.angle_increment
         max_r  = scan.range_max if scan.range_max > 0 else self.clearing_max_range
 
@@ -219,9 +205,9 @@ class PlannerNode(Node):
         h, w = grid.shape
         for r, theta in zip(ranges, angles):
             if not np.isfinite(r) or r <= 0.01:
-                continue                      # rayo inválido
+                continue   # rayo inválido
             if r >= max_r - 0.05 or r > self.clearing_max_range:
-                continue                      # no encontró obstáculo
+                continue   # sin obstáculo detectado
             ex = rx + r * math.cos(ryaw + theta)
             ey = ry + r * math.sin(ryaw + theta)
             ec = int((ex - ox) / res) + self._pad_col
@@ -233,7 +219,7 @@ class PlannerNode(Node):
     # ── Procesamiento del mapa ────────────────────────────────────────────────
 
     def _update_inflated(self):
-        """Guarda obstáculos crudos del SLAM y precomputa la estructura de inflación."""
+        """Extrae obstáculos crudos del SLAM y precomputa el kernel de inflación."""
         info = self.map_msg.info
         h, w = info.height, info.width
         data = np.array(self.map_msg.data, dtype=np.int8).reshape(h, w)
@@ -242,28 +228,31 @@ class PlannerNode(Node):
             raw |= (data < 0)
         self.raw_obs = raw
 
-        # Estructura circular para inflar al radio del robot
+        # Kernel circular para inflar al radio del robot
         radius_cells = max(1, int(math.ceil(self.robot_radius / info.resolution)))
         y, x = np.ogrid[-radius_cells:radius_cells + 1,
                         -radius_cells:radius_cells + 1]
         self.inflation_struct = (x * x + y * y) <= (radius_cells * radius_cells)
 
-        # Versión inflada del SLAM (sin limpieza LiDAR) — por compatibilidad
-        self.inflated_obs = binary_dilation(raw, structure=self.inflation_struct)
+        # Grid inflado del SLAM sin limpieza LiDAR (usado como fallback)
+        self.inflated_obs = self._binary_dilation_numpy(raw, self.inflation_struct)
 
     def _world_to_grid(self, wx, wy):
+        """Convierte coordenadas del mundo (m) a índices de celda (fila, col)."""
         info = self.map_msg.info
-        col = int((wx - info.origin.position.x) / info.resolution)
-        row = int((wy - info.origin.position.y) / info.resolution)
+        col  = int((wx - info.origin.position.x) / info.resolution)
+        row  = int((wy - info.origin.position.y) / info.resolution)
         return row, col
 
     def _grid_to_world(self, row, col):
+        """Convierte índices de celda (fila, col) a coordenadas del mundo (m)."""
         info = self.map_msg.info
-        wx = info.origin.position.x + (col - self._pad_col + 0.5) * info.resolution
-        wy = info.origin.position.y + (row - self._pad_row + 0.5) * info.resolution
+        wx   = info.origin.position.x + (col - self._pad_col + 0.5) * info.resolution
+        wy   = info.origin.position.y + (row - self._pad_row + 0.5) * info.resolution
         return wx, wy
 
     def _get_robot_xy(self):
+        """Devuelve (x, y) del robot en el frame del mapa, o None si no hay TF."""
         try:
             t = self.tf_buffer.lookup_transform(
                 self.map_frame, self.robot_frame, rclpy.time.Time())
@@ -271,36 +260,31 @@ class PlannerNode(Node):
         except (LookupException, ConnectivityException, ExtrapolationException):
             return None
 
-    # ── A* ────────────────────────────────────────────────────────────────────
+    # ── Planificación ─────────────────────────────────────────────────────────
 
     def replan(self):
+        """Ejecuta el pipeline completo: limpiar→expandir→estampar→inflar→A*→publicar."""
         if self.map_msg is None or self.goal is None or self.raw_obs is None:
             return
         start_xy = self._get_robot_xy()
         if start_xy is None:
             return
 
-        # 1) limpieza LiDAR sobre obstáculos CRUDOS (no inflados)
+        # 1. Limpieza LiDAR sobre obstáculos crudos (antes de inflar)
         cleaned_raw = self._apply_live_scan_clearing(self.raw_obs)
 
-        # coords (pueden caer fuera del grid: negativas o >= h/w)
         start_rc = self._world_to_grid(*start_xy)
         goal_rc  = self._world_to_grid(*self.goal)
 
-        # 2) agrandar el grid CRUDO para abarcar start y goal aunque estén
-        #    fuera del mapa de SLAM (espacio nuevo = libre/navegable)
+        # 2. Ampliar el grid para incluir start y goal aunque estén fuera del mapa
         expanded_raw, start_rc, goal_rc = self._expand_to_include(
             cleaned_raw, start_rc, goal_rc)
 
-        # 3) estampar los hits del LiDAR como obstáculos: así las paredes que
-        #    el láser ve FUERA del mapa de SLAM (en la zona recién añadida)
-        #    también se respetan y la ruta no las atraviesa.
+        # 3. Estampar hits del LiDAR en la zona nueva del grid
         expanded_raw = self._stamp_live_obstacles(expanded_raw)
 
-        # 4) inflar DESPUÉS de expandir/estampar: las paredes (de SLAM o del
-        #    LiDAR) extienden su zona de seguridad al área nueva y la ruta no se
-        #    "cuela" por el extremo cortado de una pared.
-        self.work_obs = binary_dilation(expanded_raw, structure=self.inflation_struct)
+        # 4. Inflar después de expandir/estampar para cubrir también la zona nueva
+        self.work_obs = self._binary_dilation_numpy(expanded_raw, self.inflation_struct)
 
         start_rc = self._nearest_free(start_rc)
         goal_rc  = self._nearest_free(goal_rc)
@@ -321,11 +305,12 @@ class PlannerNode(Node):
         self._publish_viz(path_world)
 
     def _nearest_free(self, rc):
+        """Busca por BFS la celda libre más cercana a rc en work_obs."""
         obs = self.work_obs if self.work_obs is not None else self.inflated_obs
         if not obs[rc[0], rc[1]]:
             return rc
         h, w = obs.shape
-        q = deque([rc])
+        q    = deque([rc])
         seen = {rc}
         while q:
             r, c = q.popleft()
@@ -341,15 +326,13 @@ class PlannerNode(Node):
     def _expand_to_include(self, grid, *cells):
         """
         Devuelve (grid_expandido, *cells_ajustadas) de forma que todas las
-        celdas dadas queden dentro de los límites, con un margen alrededor.
-        Opera sobre obstáculos CRUDOS (sin inflar): la inflación se aplica
-        después, por el llamador, sobre el grid ya expandido.
-        Las celdas nuevas se rellenan según unknown_is_obstacle (por defecto
-        libres → navegables), permitiendo planificar a puntos fuera del mapa.
-        Actualiza self._pad_row/_pad_col para las conversiones grid↔world.
+        celdas queden dentro de los límites con un margen de seguridad.
+        Opera sobre obstáculos crudos; la inflación la aplica el llamador.
+        Las celdas nuevas se rellenan como libres (o como obstáculo si
+        unknown_is_obstacle es True). Actualiza _pad_row/_pad_col.
         """
         h, w = grid.shape
-        m = self.out_of_map_margin
+        m    = self.out_of_map_margin
         rows = [c[0] for c in cells]
         cols = [c[1] for c in cells]
 
@@ -358,7 +341,7 @@ class PlannerNode(Node):
         min_c = min(0, min(cols) - m)
         max_c = max(w - 1, max(cols) + m)
 
-        pad_r = -min_r          # filas añadidas antes del origen original
+        pad_r = -min_r
         pad_c = -min_c
         self._pad_row = pad_r
         self._pad_col = pad_c
@@ -371,22 +354,26 @@ class PlannerNode(Node):
         self.get_logger().info(
             f'Goal/start fuera del mapa: ampliando grid {w}x{h} → {new_w}x{new_h}'
         )
-        fill = bool(self.unknown_is_obstacle)   # False = libre, True = obstáculo
+        fill     = bool(self.unknown_is_obstacle)
         new_grid = np.full((new_h, new_w), fill, dtype=bool)
         new_grid[pad_r:pad_r + h, pad_c:pad_c + w] = grid
 
         adj = tuple((r + pad_r, c + pad_c) for (r, c) in cells)
         return (new_grid, *adj)
 
+    # ── A* ────────────────────────────────────────────────────────────────────
+
     def _astar(self, start, goal):
+        """A* sobre work_obs. Devuelve lista de celdas o None si no hay ruta."""
         obs = self.work_obs if self.work_obs is not None else self.inflated_obs
         if start == goal:
             return [start]
         h, w = obs.shape
+
         if self.allow_diagonal:
             moves = [(-1, -1, 1.4142), (-1, 0, 1.0), (-1, 1, 1.4142),
                      ( 0, -1, 1.0),                   ( 0, 1, 1.0),
-                     ( 1, -1, 1.4142), ( 1, 0, 1.0), ( 1, 1, 1.4142)]
+                     ( 1, -1, 1.4142), ( 1, 0, 1.0),  ( 1, 1, 1.4142)]
         else:
             moves = [(-1, 0, 1.0), (1, 0, 1.0), (0, -1, 1.0), (0, 1, 1.0)]
 
@@ -418,16 +405,17 @@ class PlannerNode(Node):
                 new_g = g + cost
                 if new_g < g_score.get((nr, nc), float('inf')):
                     g_score[(nr, nc)] = new_g
-                    f_new = new_g + heur((nr, nc), goal)
-                    heapq.heappush(open_heap, (f_new, new_g, (nr, nc), node))
+                    heapq.heappush(open_heap,
+                                   (new_g + heur((nr, nc), goal), new_g, (nr, nc), node))
         return None
 
-    # ── Simplificación line-of-sight (Bresenham) ─────────────────────────────
+    # ── Simplificación line-of-sight ──────────────────────────────────────────
 
     def _simplify(self, cells):
+        """Reduce el número de waypoints eliminando los colineales con Bresenham."""
         if len(cells) < 3:
             return cells
-        out = [cells[0]]
+        out    = [cells[0]]
         anchor = 0
         for i in range(2, len(cells)):
             if not self._line_clear(cells[anchor], cells[i]):
@@ -437,13 +425,14 @@ class PlannerNode(Node):
         return out
 
     def _line_clear(self, a, b):
+        """Devuelve True si la línea recta entre a y b no cruza ningún obstáculo."""
         obs = self.work_obs if self.work_obs is not None else self.inflated_obs
         r0, c0 = a
         r1, c1 = b
-        dr = abs(r1 - r0)
-        dc = abs(c1 - c0)
-        sr = 1 if r1 > r0 else -1
-        sc = 1 if c1 > c0 else -1
+        dr  = abs(r1 - r0)
+        dc  = abs(c1 - c0)
+        sr  = 1 if r1 > r0 else -1
+        sc  = 1 if c1 > c0 else -1
         err = dr - dc
         h, w = obs.shape
         while True:
@@ -461,7 +450,57 @@ class PlannerNode(Node):
                 err += dr
                 c0  += sc
 
-    # ── Publishers ────────────────────────────────────────────────────────────
+    # ── Utilidades estáticas ──────────────────────────────────────────────────
+
+    @staticmethod
+    def _binary_dilation_numpy(mask: np.ndarray, structure: np.ndarray) -> np.ndarray:
+        """
+        Equivalente a scipy.ndimage.binary_dilation(mask, structure=structure)
+        implementado con numpy puro. Opera sobre arrays 2D booleanos.
+        """
+        out  = np.zeros_like(mask)
+        rows, cols = np.where(structure)
+        cy, cx     = structure.shape[0] // 2, structure.shape[1] // 2
+
+        for dr, dc in zip(rows - cy, cols - cx):
+            shifted = np.roll(np.roll(mask, dr, axis=0), dc, axis=1)
+            # np.roll envuelve los bordes; se corrigen zeroing las franjas desplazadas
+            if dr > 0:
+                shifted[:dr, :]  = False
+            elif dr < 0:
+                shifted[dr:, :]  = False
+            if dc > 0:
+                shifted[:, :dc]  = False
+            elif dc < 0:
+                shifted[:, dc:]  = False
+            out |= shifted
+
+        return out
+
+    @staticmethod
+    def _bresenham_clear(grid, r0, c0, r1, c1, h, w, include_endpoint=False):
+        """Traza una línea de Bresenham y marca cada celda como libre (False)."""
+        dr  = abs(r1 - r0)
+        dc  = abs(c1 - c0)
+        sr  = 1 if r1 > r0 else -1
+        sc  = 1 if c1 > c0 else -1
+        err = dr - dc
+        while True:
+            if r0 == r1 and c0 == c1:
+                if include_endpoint and 0 <= r0 < h and 0 <= c0 < w:
+                    grid[r0, c0] = False
+                break
+            if 0 <= r0 < h and 0 <= c0 < w:
+                grid[r0, c0] = False
+            e2 = 2 * err
+            if e2 > -dc:
+                err -= dc
+                r0  += sr
+            if e2 < dr:
+                err += dr
+                c0  += sc
+
+    # ── Publicadores ─────────────────────────────────────────────────────────
 
     def _publish_plan(self, path_world):
         msg = Path()
@@ -470,8 +509,8 @@ class PlannerNode(Node):
         for (x, y) in path_world:
             p = PoseStamped()
             p.header = msg.header
-            p.pose.position.x = x
-            p.pose.position.y = y
+            p.pose.position.x    = x
+            p.pose.position.y    = y
             p.pose.orientation.w = 1.0
             msg.poses.append(p)
         self.pub_plan.publish(msg)
@@ -483,8 +522,11 @@ class PlannerNode(Node):
         self.pub_plan.publish(msg)
 
     def _publish_viz(self, path_world):
-        arr = MarkerArray()
+        """Publica la ruta como línea y conjunto de puntos en RViz."""
+        arr   = MarkerArray()
         stamp = self.get_clock().now().to_msg()
+
+        # Línea de la trayectoria
         ls = Marker()
         ls.header.frame_id = self.map_frame
         ls.header.stamp    = stamp
@@ -499,6 +541,7 @@ class PlannerNode(Node):
             ls.points.append(Point(x=x, y=y, z=0.06))
         arr.markers.append(ls)
 
+        # Esferas en cada waypoint
         wps = Marker()
         wps.header.frame_id = self.map_frame
         wps.header.stamp    = stamp
@@ -512,6 +555,7 @@ class PlannerNode(Node):
         for (x, y) in path_world:
             wps.points.append(Point(x=x, y=y, z=0.06))
         arr.markers.append(wps)
+
         self.pub_viz.publish(arr)
 
 

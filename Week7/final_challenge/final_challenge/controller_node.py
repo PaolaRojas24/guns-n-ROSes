@@ -19,6 +19,7 @@ class ControllerNode(Node):
     def __init__(self):
         super().__init__('controller_node')
 
+        # ── Parámetros ────────────────────────────────────────────────────────
         self.declare_parameter('lookahead_distance',     0.40)
         self.declare_parameter('lookahead_gain',         0.30)
         self.declare_parameter('max_linear',             0.15)
@@ -41,21 +42,26 @@ class ControllerNode(Node):
         self.map_frame              = self.get_parameter('map_frame').value
         self.robot_frame            = self.get_parameter('robot_frame').value
 
-        self.path   = None   # list[(x,y)]
-        self.goal   = None   # (x,y)
-        self.last_v = 0.0
+        # ── Estado interno ────────────────────────────────────────────────────
+        self.path   = None   # lista[(x, y)]
+        self.goal   = None   # (x, y) en frame map
+        self.last_v = 0.0    # última velocidad lineal publicada
 
+        # ── TF ────────────────────────────────────────────────────────────────
         self.tf_buffer   = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
+        # ── QoS ───────────────────────────────────────────────────────────────
         qos_path = QoSProfile(depth=1,  durability=DurabilityPolicy.TRANSIENT_LOCAL)
         qos_goal = QoSProfile(depth=10, durability=DurabilityPolicy.TRANSIENT_LOCAL)
 
+        # ── Suscriptores ──────────────────────────────────────────────────────
         self.create_subscription(Path,        '/plan',      self.plan_cb, qos_path)
         self.create_subscription(PoseStamped, '/goal_pose', self.goal_cb, qos_goal)
 
-        self.pub_cmd  = self.create_publisher(Twist, '/cmd_vel',         10)
-        self.pub_done = self.create_publisher(Bool,  '/goal_reached',    10)
+        # ── Publicadores ──────────────────────────────────────────────────────
+        self.pub_cmd  = self.create_publisher(Twist,       '/cmd_vel',        10)
+        self.pub_done = self.create_publisher(Bool,        '/goal_reached',   10)
         self.pub_viz  = self.create_publisher(MarkerArray, '/controller/viz', 10)
 
         self.create_timer(1.0 / self.control_rate_hz, self.control_loop)
@@ -75,9 +81,10 @@ class ControllerNode(Node):
             f'Nuevo goal: ({self.goal[0]:.2f}, {self.goal[1]:.2f})'
         )
 
-    # ── Pose ──────────────────────────────────────────────────────────────────
+    # ── Consulta de pose ──────────────────────────────────────────────────────
 
     def _get_pose(self):
+        """Devuelve (x, y, yaw) del robot en el frame del mapa, o None si no hay TF."""
         try:
             t = self.tf_buffer.lookup_transform(
                 self.map_frame, self.robot_frame, rclpy.time.Time())
@@ -90,7 +97,7 @@ class ControllerNode(Node):
             [q.w, q.x, q.y, q.z], axes='sxyz')
         return x, y, yaw
 
-    # ── Loop principal ────────────────────────────────────────────────────────
+    # ── Loop de control ───────────────────────────────────────────────────────
 
     def control_loop(self):
         pose = self._get_pose()
@@ -98,7 +105,7 @@ class ControllerNode(Node):
             return
         x, y, yaw = pose
 
-        # Llegada al goal (independiente del plan — usa goal directo)
+        # Comprobación de llegada al goal (independiente del plan)
         if self.goal is not None:
             d_goal = math.hypot(self.goal[0] - x, self.goal[1] - y)
             if d_goal < self.goal_tolerance:
@@ -112,14 +119,14 @@ class ControllerNode(Node):
             self._stop()
             return
 
-        # Lookahead adaptativo (más rápido ⇒ mira más lejos)
+        # Lookahead adaptativo: a mayor velocidad, mira más lejos
         ld = self.lookahead_distance + self.lookahead_gain * abs(self.last_v)
 
         target = self._find_lookahead_point(x, y, ld)
         if target is None:
             target = self.path[-1]
 
-        # Ángulo al target en frame del robot
+        # Ángulo al target en el frame del robot
         dx = target[0] - x
         dy = target[1] - y
         d  = math.hypot(dx, dy)
@@ -130,17 +137,17 @@ class ControllerNode(Node):
         alpha = math.atan2(dy, dx) - yaw
         alpha = math.atan2(math.sin(alpha), math.cos(alpha))
 
-        # Si el error angular es enorme, gira en sitio antes de avanzar
+        # Si el error angular es grande, gira en sitio antes de avanzar
         if abs(alpha) > self.rotate_in_place_thresh:
             v = 0.0
             w = float(np.clip(self.kp_heading * alpha,
                               -self.max_angular, self.max_angular))
         else:
-            # Curvatura del Pure Pursuit: k = 2·sin(α) / ld
+            # Curvatura Pure Pursuit: k = 2·sin(α) / ld
             k = 2.0 * math.sin(alpha) / max(ld, 0.05)
             v = self.max_linear
             w = float(np.clip(k * v, -self.max_angular, self.max_angular))
-            # Frena en curvas pronunciadas
+            # Reducción de velocidad en curvas pronunciadas
             v *= max(0.30, 1.0 - abs(w) / self.max_angular)
 
         self.last_v = v
@@ -152,34 +159,38 @@ class ControllerNode(Node):
 
         self._publish_viz(x, y, target, ld)
 
-    # ── Lookahead point ───────────────────────────────────────────────────────
+    # ── Punto de lookahead ────────────────────────────────────────────────────
 
     def _find_lookahead_point(self, x, y, ld):
-        # Índice más cercano al robot
-        best_i  = 0
-        best_d  = float('inf')
+        """Devuelve el primer punto del path a distancia >= ld desde la posición actual."""
+        # Índice del punto más cercano al robot
+        best_i = 0
+        best_d = float('inf')
         for i, (px, py) in enumerate(self.path):
             d = (px - x) * (px - x) + (py - y) * (py - y)
             if d < best_d:
                 best_d = d
                 best_i = i
-        # Desde ahí hacia adelante, primer punto a >= ld
+        # Primer punto delante que supera la distancia de lookahead
         for i in range(best_i, len(self.path)):
             px, py = self.path[i]
             if math.hypot(px - x, py - y) >= ld:
                 return (px, py)
         return self.path[-1]
 
-    # ── Stop / Viz ────────────────────────────────────────────────────────────
+    # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _stop(self):
+        """Publica velocidad cero y reinicia el registro de velocidad."""
         self.last_v = 0.0
         self.pub_cmd.publish(Twist())
 
     def _publish_viz(self, x, y, target, ld):
-        arr = MarkerArray()
+        """Publica marcadores de visualización: punto de lookahead, línea y anillo."""
+        arr   = MarkerArray()
         stamp = self.get_clock().now().to_msg()
 
+        # Esfera en el punto de lookahead
         sph = Marker()
         sph.header.frame_id = self.map_frame
         sph.header.stamp    = stamp
@@ -195,6 +206,7 @@ class ControllerNode(Node):
         sph.pose.orientation.w = 1.0
         arr.markers.append(sph)
 
+        # Línea robot → lookahead
         ln = Marker()
         ln.header.frame_id = self.map_frame
         ln.header.stamp    = stamp
@@ -209,6 +221,7 @@ class ControllerNode(Node):
                      Point(x=target[0], y=target[1], z=0.07)]
         arr.markers.append(ln)
 
+        # Círculo con radio de lookahead
         ring = Marker()
         ring.header.frame_id = self.map_frame
         ring.header.stamp    = stamp

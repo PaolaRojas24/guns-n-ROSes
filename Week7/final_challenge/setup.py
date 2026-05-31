@@ -27,11 +27,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'PointStabilisation_node = final_challenge.point_stabilisation_control:main',
             'localisation = final_challenge.localisation:main',
-            'joint_state_pub = final_challenge.joint_state_pub:main',
             'puzzlebot_sim = final_challenge.puzzlebot_sim:main',
-            'coords_transform = final_challenge.coords_transform:main',
             'mission_node = final_challenge.mission_node:main',
             'planner_node = final_challenge.planner_node:main',
             'controller_node = final_challenge.controller_node:main',
