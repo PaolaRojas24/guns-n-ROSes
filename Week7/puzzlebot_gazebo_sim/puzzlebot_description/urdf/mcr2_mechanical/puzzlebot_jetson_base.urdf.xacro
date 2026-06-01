@@ -14,7 +14,7 @@
             <geometry>
                 <mesh filename="file://${mesh_puzzlebot_chassis}"/>
             </geometry>
-            <material name="yellow"/>
+            <material name="green"/>
         </visual>
 
         <collision>

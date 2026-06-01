@@ -54,8 +54,7 @@
                             <specular>1 1 1 1</specular>
                             <pbr>
                                 <metal>
-                                <albedo_map>model://office_floor/materials/textures/puzzlebot_wood_7.png</albedo_map>
-                                <normal_map>model://office_floor/materials/textures/puzzlebot_wood_7.png</normal_map>
+                                <albedo_map>model://office_floor/materials/textures/backroom.jpg</albedo_map>
                                 </metal>
                             </pbr>
                         </material>
