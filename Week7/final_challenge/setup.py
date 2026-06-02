@@ -34,6 +34,8 @@ setup(
             'controller_node = final_challenge.controller_node:main',
             'slam_resetter = final_challenge.slam_resetter_node:main',
             'camera_node = final_challenge.camera_node:main',
+            'bug1_node = final_challenge.bug1_node:main',
+            'control_node = final_challenge.control_node:main',
         ],
     },
 )

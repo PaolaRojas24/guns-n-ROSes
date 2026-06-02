@@ -39,3 +39,22 @@ mission_node:
       goal_4:
         x:   -2.05
         y:   -0.70
+
+bug1_node:
+  ros__parameters:
+    trajectory_goals:
+      goal_1:
+        x:    2.81
+        y:   -2.73
+
+      goal_2:
+        x:    0.0
+        y:    2.25
+
+      goal_3:
+        x:   -3.40
+        y:   -2.40
+
+      goal_4:
+        x:   -2.05
+        y:   -0.70
